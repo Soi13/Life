@@ -1,0 +1,23 @@
+# depslib dependency file v1.0
+1790442123 source:/home/oleg/Documents/C++_Course/Life/main.cpp
+	<iostream>
+
+1788084094 source:/home/oleg/Documents/C++_Course/Life/glad/gl.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<glad/gl.h>
+	<stddef.h>
+	<stdlib.h>
+	<windows.h>
+	<dlfcn.h>
+
+1788084094 /home/oleg/Documents/C++_Course/Life/include/glad/gl.h
+	<winapifamily.h>
+	<KHR/khrplatform.h>
+
+1788084094 /home/oleg/Documents/C++_Course/Life/include/KHR/khrplatform.h
+	<stdint.h>
+	<inttypes.h>
+	<stdint.h>
+
