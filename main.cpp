@@ -59,6 +59,18 @@ float convertY(float y) {
 }
 
 
+void createCircle(float x, float y, float radius, float* vertices, int segments) {
+    vertices[0] = x;
+    vertices[1] = y;
+
+    for (int i = 0; i <= segments; i++) {
+        float angle = 2.0f * M_PI * i / segments;
+        vertices[(i + 1) * 2] = x + cos(angle) * radius;
+        vertices[(i + 1) * 2 + 1] = y + sin(angle) * radius;
+    }
+}
+
+
 int main()
 {
     // ==================================================
@@ -176,6 +188,18 @@ int main()
 
 
     // ==================================================
+    // Circle settings
+    // ==================================================
+
+    const int SEGMENTS = 32;
+    const int VERTEX_COUNT = SEGMENTS + 2;
+
+    // Center + circumference vertices
+
+    float circleVertices[VERTEX_COUNT * 2];
+
+
+    // ==================================================
     // Main loop
     // ==================================================
 
@@ -244,29 +268,43 @@ int main()
         // Draw PREY
         // ==================================================
 
-        float preyVertex[] = {convertX(prey.x), convertY(prey.y)};
+        //float preyVertex[] = {convertX(prey.x), convertY(prey.y)};
+        float preyX = convertX(prey.x);
+        float preyY = convertY(prey.y);
         glBindVertexArray(VAO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(preyVertex), preyVertex, GL_DYNAMIC_DRAW);
+
+        createCircle(preyX, preyY, 0.02f, circleVertices, SEGMENTS);
+
+        //glBufferData(GL_ARRAY_BUFFER, sizeof(preyVertex), preyVertex, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
         // Green
         glUniform3f(colorLocation, 0.0f, 1.0f, 0.0f);
         glPointSize(20.0f);
-        glDrawArrays(GL_POINTS, 0, 1);
+        //glDrawArrays(GL_POINTS, 0, 1);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
 
 
         // ==================================================
         // Draw PREDATOR
         // ==================================================
 
-        float predatorVertex[] = {convertX(predator.x), convertY(predator.y)};
-        glBufferData(GL_ARRAY_BUFFER, sizeof(predatorVertex), predatorVertex, GL_DYNAMIC_DRAW);
+        //float predatorVertex[] = {convertX(predator.x), convertY(predator.y)};
+        float predatorX = convertX(predator.x);
+        float predatorY = convertY(predator.y);
+
+        createCircle(predatorX, predatorY, 0.03f, circleVertices, SEGMENTS);
+
+        //glBufferData(GL_ARRAY_BUFFER, sizeof(predatorVertex), predatorVertex, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
 
         // Red
         glUniform3f(colorLocation, 1.0f, 0.0f, 0.0f);
-        glDrawArrays(GL_POINTS, 0, 1);
+        //glDrawArrays(GL_POINTS, 0, 1);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
 
 
         // ==================================================
