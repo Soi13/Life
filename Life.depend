@@ -1,6 +1,11 @@
 # depslib dependency file v1.0
-1790442123 source:/home/oleg/Documents/C++_Course/Life/main.cpp
+1790487019 source:/home/oleg/Documents/C++_Course/Life/main.cpp
 	<iostream>
+	<cmath>
+	<random>
+	<ctime>
+	<glad/gl.h>
+	<GLFW/glfw3.h>
 
 1788084094 source:/home/oleg/Documents/C++_Course/Life/glad/gl.c
 	<stdio.h>

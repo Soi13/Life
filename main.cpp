@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cmath>
+#include <random>
+#include <ctime>
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -16,7 +18,25 @@ struct Predator {
 struct Prey {
     float x;
     float y;
+    float dx;
+    float dy;
+    float speed;
+    float directionTimer;
+    float directionChangeTime;
+
 };
+
+void randomDirection(Prey& prey) {
+    float dx = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
+    float dy = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
+
+    float length = sqrt(pow(dx, 2) + pow(dy, 2));
+
+    if (length > 0.0f) {
+        prey.dx = dx / length;
+        prey.dy = dy / length;
+    }
+}
 
 // ==================================================
 // Vertex shader
@@ -73,6 +93,9 @@ void createCircle(float x, float y, float radius, float* vertices, int segments)
 
 int main()
 {
+    //Initialize the random generator
+    srand(time(nullptr));
+
     // ==================================================
     // 1. Initialize GLFW
     // ==================================================
@@ -183,8 +206,11 @@ int main()
     // ==================================================
 
     Predator predator = {1.0f, 1.0f, 0.1f};
-    Prey prey = {20.0f, 22.0f};
+    Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 5.0f, 0.0f, 1.0f};
+
     float CATCH_DISTANCE = 3.0f;
+
+    randomDirection(prey);
 
 
     // ==================================================
@@ -197,6 +223,7 @@ int main()
     // Center + circumference vertices
 
     float circleVertices[VERTEX_COUNT * 2];
+    float lastTime = glfwGetTime();
 
 
     // ==================================================
@@ -205,6 +232,45 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
+        float currentTime = glfwGetTime();
+        float deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
+
+        // ==================================================
+        // Prey algorithm
+        // ==================================================
+        prey.x = prey.x + prey.dx * prey.speed * deltaTime;
+        prey.y = prey.y + prey.dy * prey.speed * deltaTime;
+
+        if (prey.x <= 0.0f) {
+            prey.x = 0.0f;
+            prey.dx = -prey.dx;
+        }
+
+        if (prey.x >= 100.0f) {
+            prey.x = 100.0f;
+            prey.dx = -prey.dx;
+        }
+
+        if (prey.y <= 0.0f) {
+            prey.y = 0.0f;
+            prey.dy = -prey.dy;
+        }
+
+        if (prey.y >= 100.0f) {
+            prey.y = 100.0f;
+            prey.dy = -prey.dy;
+        }
+
+        prey.directionTimer = prey.directionTimer + 0.016f;
+
+        if (prey.directionTimer >= prey.directionChangeTime) {
+            randomDirection(prey);
+            prey.directionTimer = 0.0f;
+        }
+
+
+
         // ==================================================
         // Predator algorithm
         // ==================================================
