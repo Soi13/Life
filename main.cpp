@@ -38,6 +38,18 @@ void randomDirection(Prey& prey) {
     }
 }
 
+void fleeFromPredator(Prey& prey, const Predator& predator) {
+    float dx = prey.x - predator.x;
+    float dy = prey.y - predator.y;
+
+    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
+
+    if (distance > 0.0f) {
+        prey.dx = dx / distance;
+        prey.dy = dy / distance;
+    }
+}
+
 // ==================================================
 // Vertex shader
 // ==================================================
@@ -206,9 +218,10 @@ int main()
     // ==================================================
 
     Predator predator = {1.0f, 1.0f, 0.1f};
-    Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 5.0f, 0.0f, 1.0f};
+    Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
 
-    float CATCH_DISTANCE = 3.0f;
+    const float CATCH_DISTANCE = 3.0f;
+    const float FLEE_DISTANCE = 20.0f;
 
     randomDirection(prey);
 
@@ -239,6 +252,26 @@ int main()
         // ==================================================
         // Prey algorithm
         // ==================================================
+
+        float dx_prey = prey.x - predator.x;
+        float dy_prey = prey.y - predator.y;
+
+        float distance_prey = sqrt(pow(dx_prey, 2) + pow(dy_prey, 2));
+
+        if (distance_prey < FLEE_DISTANCE) {
+            // Predator is close, run away from predator
+            fleeFromPredator(prey, predator);
+        } else {
+            // Predator is far, continue random movement
+            prey.directionTimer = prey.directionTimer + deltaTime;
+
+            if (prey.directionTimer >= prey.directionChangeTime) {
+                randomDirection(prey);
+                prey.directionTimer = 0.0f;
+            }
+        }
+
+        // Move prey
         prey.x = prey.x + prey.dx * prey.speed * deltaTime;
         prey.y = prey.y + prey.dy * prey.speed * deltaTime;
 
@@ -261,14 +294,6 @@ int main()
             prey.y = 100.0f;
             prey.dy = -prey.dy;
         }
-
-        prey.directionTimer = prey.directionTimer + 0.016f;
-
-        if (prey.directionTimer >= prey.directionChangeTime) {
-            randomDirection(prey);
-            prey.directionTimer = 0.0f;
-        }
-
 
 
         // ==================================================
