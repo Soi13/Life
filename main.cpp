@@ -9,6 +9,10 @@
 
 using namespace std;
 
+const int PREY_COUNT = 10;
+const float CATCH_DISTANCE = 3.0f;
+const float FLEE_DISTANCE = 20.0f;
+
 struct Predator {
     float x;
     float y;
@@ -23,7 +27,7 @@ struct Prey {
     float speed;
     float directionTimer;
     float directionChangeTime;
-
+    bool alive;
 };
 
 void randomDirection(Prey& prey) {
@@ -116,6 +120,7 @@ int main()
         cout << "ERROR: GLFW initialization failed\n";
         return -1;
     }
+
 
     // ==================================================
     // 2. Request OpenGL 3.3 Core
@@ -218,12 +223,50 @@ int main()
     // ==================================================
 
     Predator predator = {1.0f, 1.0f, 0.1f};
-    Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
+    //Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
 
-    const float CATCH_DISTANCE = 3.0f;
-    const float FLEE_DISTANCE = 20.0f;
+    Prey prey[PREY_COUNT];
 
-    randomDirection(prey);
+    // ==================================================
+    // INITIALIZE ALL PREYS
+    // ==================================================
+
+    for (int i = 0; i < PREY_COUNT; i++) {
+
+        // Random position
+        prey[i].x = 20.0f + static_cast<float>(rand() % 70);
+        prey[i].y = 20.0f + static_cast<float>(rand() % 70);
+        prey[i].dx = 0.0f;
+        prey[i].dy = 0.0f;
+
+        // Speed
+        prey[i].speed = 3.0f;
+
+        // Random movement
+        prey[i].directionTimer = 0.0f;
+        prey[i].directionChangeTime = 1.0f + static_cast<float>(rand() % 200) / 100.0f;
+
+        randomDirection(prey[i]);
+
+        // Alive
+        prey[i].alive = true;
+    }
+
+
+    // ==================================================
+    // CURRENT TARGET
+    // ==================================================
+
+    int currentPrey = 0;
+
+
+    // ==================================================
+    // FIND FIRST LIVE PREY
+    // ==================================================
+
+    while (currentPrey < PREY_COUNT && !prey[currentPrey].alive) {
+        currentPrey++;
+    }
 
 
     // ==================================================
@@ -234,7 +277,6 @@ int main()
     const int VERTEX_COUNT = SEGMENTS + 2;
 
     // Center + circumference vertices
-
     float circleVertices[VERTEX_COUNT * 2];
     float lastTime = glfwGetTime();
 
@@ -253,85 +295,116 @@ int main()
         // Prey algorithm
         // ==================================================
 
-        float dx_prey = prey.x - predator.x;
-        float dy_prey = prey.y - predator.y;
+        for (int i = 0; i < PREY_COUNT; i++) {
+            if (!prey[i].alive) {
+                continue;
+            }
 
-        float distance_prey = sqrt(pow(dx_prey, 2) + pow(dy_prey, 2));
+            float dx_prey = prey[i].x - predator.x;
+            float dy_prey = prey[i].y - predator.y;
 
-        if (distance_prey < FLEE_DISTANCE) {
-            // Predator is close, run away from predator
-            fleeFromPredator(prey, predator);
-        } else {
-            // Predator is far, continue random movement
-            prey.directionTimer = prey.directionTimer + deltaTime;
+            float distance_prey = sqrt(pow(dx_prey, 2) + pow(dy_prey, 2));
 
-            if (prey.directionTimer >= prey.directionChangeTime) {
-                randomDirection(prey);
-                prey.directionTimer = 0.0f;
+            if (distance_prey < FLEE_DISTANCE) {
+                // Predator is close, run away from predator
+                fleeFromPredator(prey[i], predator);
+            } else {
+                // Predator is far, continue random movement
+                prey[i].directionTimer = prey[i].directionTimer + deltaTime;
+
+                if (prey[i].directionTimer >= prey[i].directionChangeTime) {
+                    randomDirection(prey[i]);
+                    prey[i].directionTimer = 0.0f;
+                }
+            }
+
+            // Move prey
+            prey[i].x = prey[i].x + prey[i].dx * prey[i].speed * deltaTime;
+            prey[i].y = prey[i].y + prey[i].dy * prey[i].speed * deltaTime;
+
+            if (prey[i].x <= 0.0f) {
+                prey[i].x = 0.0f;
+                prey[i].dx = -prey[i].dx;
+            }
+
+            if (prey[i].x >= 100.0f) {
+                prey[i].x = 100.0f;
+                prey[i].dx = -prey[i].dx;
+            }
+
+            if (prey[i].y <= 0.0f) {
+                prey[i].y = 0.0f;
+                prey[i].dy = -prey[i].dy;
+            }
+
+            if (prey[i].y >= 100.0f) {
+                prey[i].y = 100.0f;
+                prey[i].dy = -prey[i].dy;
             }
         }
-
-        // Move prey
-        prey.x = prey.x + prey.dx * prey.speed * deltaTime;
-        prey.y = prey.y + prey.dy * prey.speed * deltaTime;
-
-        if (prey.x <= 0.0f) {
-            prey.x = 0.0f;
-            prey.dx = -prey.dx;
-        }
-
-        if (prey.x >= 100.0f) {
-            prey.x = 100.0f;
-            prey.dx = -prey.dx;
-        }
-
-        if (prey.y <= 0.0f) {
-            prey.y = 0.0f;
-            prey.dy = -prey.dy;
-        }
-
-        if (prey.y >= 100.0f) {
-            prey.y = 100.0f;
-            prey.dy = -prey.dy;
-        }
-
 
         // ==================================================
         // Predator algorithm
         // ==================================================
 
-        float dx = prey.x - predator.x;
-        float dy = prey.y - predator.y;
-
-        // Distance between predator and prey
-        float distance = sqrt(pow(dx, 2) + pow(dy, 2));
-
-
-        // ==================================================
-        // Has predator caught prey?
-        // ==================================================
-
-        if (distance < CATCH_DISTANCE) {
-            cout << "Prey has been caught!" << endl;
-            break;
+        // FIND NEXT LIVE PREY
+        while (currentPrey < PREY_COUNT && !prey[currentPrey].alive) {
+            currentPrey++;
         }
 
+        // Predator chase
+        if (currentPrey < PREY_COUNT) {
 
-        // ==================================================
-        // Normalize direction
-        // ==================================================
+            float dx = prey[currentPrey].x - predator.x;
+            float dy = prey[currentPrey].y - predator.y;
 
-        dx = dx / distance;
-        dy = dy / distance;
+            // Distance between predator and prey
+            float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
 
-        // ==================================================
-        // Move predator
-        // ==================================================
+            // ==================================================
+            // Has predator caught prey?
+            // ==================================================
 
-        predator.x = predator.x + dx * predator.speed;
-        predator.y = predator.y + dy * predator.speed;
+            if (distance < CATCH_DISTANCE) {
+                cout << "Predator caught prey #" << currentPrey << endl;
 
+                // Mark prey as dead
+                prey[currentPrey].alive = false;
+
+                    // Move to next prey
+                    currentPrey++;
+
+                    // Find next living prey
+                    while (currentPrey < PREY_COUNT && !prey[currentPrey].alive) {
+                        currentPrey++;
+                    }
+
+                    // Check whether all prey are caught
+                    if (currentPrey >= PREY_COUNT) {
+                        cout << endl;
+                        cout << "ALL PREY HAVE BEEN CAUGHT!" << endl;
+                        cout << endl;
+                    }
+
+            } else {
+
+            // ==================================================
+            // Normalize direction
+            // ==================================================
+
+            dx = dx / distance;
+            dy = dy / distance;
+
+
+            // ==================================================
+            // Move predator
+            // ==================================================
+
+            predator.x = predator.x + dx * predator.speed;
+            predator.y = predator.y + dy * predator.speed;
+            }
+        }
 
         // ==================================================
         // Clear screen
@@ -359,42 +432,43 @@ int main()
         // Draw PREY
         // ==================================================
 
-        //float preyVertex[] = {convertX(prey.x), convertY(prey.y)};
-        float preyX = convertX(prey.x);
-        float preyY = convertY(prey.y);
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        for (int i = 0; i < PREY_COUNT; i++) {
 
-        createCircle(preyX, preyY, 0.02f, circleVertices, SEGMENTS);
+            // Don't draw caught prey
+            if (!prey[i].alive) {
+                continue;
+            }
 
-        //glBufferData(GL_ARRAY_BUFFER, sizeof(preyVertex), preyVertex, GL_DYNAMIC_DRAW);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
+            float preyX = convertX(prey[i].x);
+            float preyY = convertY(prey[i].y);
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-        // Green
-        glUniform3f(colorLocation, 0.0f, 1.0f, 0.0f);
-        glPointSize(20.0f);
-        //glDrawArrays(GL_POINTS, 0, 1);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+            createCircle(preyX, preyY, 0.02f, circleVertices, SEGMENTS);
 
+            glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            // Green
+            glUniform3f(colorLocation, 0.0f, 1.0f, 0.0f);
+            glPointSize(20.0f);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+        }
 
         // ==================================================
         // Draw PREDATOR
         // ==================================================
 
-        //float predatorVertex[] = {convertX(predator.x), convertY(predator.y)};
         float predatorX = convertX(predator.x);
         float predatorY = convertY(predator.y);
 
         createCircle(predatorX, predatorY, 0.03f, circleVertices, SEGMENTS);
 
-        //glBufferData(GL_ARRAY_BUFFER, sizeof(predatorVertex), predatorVertex, GL_DYNAMIC_DRAW);
         glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
 
         // Red
         glUniform3f(colorLocation, 1.0f, 0.0f, 0.0f);
-        //glDrawArrays(GL_POINTS, 0, 1);
         glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
 
 
