@@ -12,6 +12,8 @@ using namespace std;
 const int PREY_COUNT = 10;
 const float CATCH_DISTANCE = 3.0f;
 const float FLEE_DISTANCE = 20.0f;
+const float NORMAL_PREY_SPEED = 10.0f;
+const float FLEE_PREY_SPEED   = 20.0f;
 
 struct Predator {
     float x;
@@ -42,7 +44,7 @@ void randomDirection(Prey& prey) {
     }
 }
 
-void fleeFromPredator(Prey& prey, const Predator& predator) {
+/*void fleeFromPredator(Prey& prey, const Predator& predator) {
     float dx = prey.x - predator.x;
     float dy = prey.y - predator.y;
 
@@ -51,6 +53,37 @@ void fleeFromPredator(Prey& prey, const Predator& predator) {
     if (distance > 0.0f) {
         prey.dx = dx / distance;
         prey.dy = dy / distance;
+    }
+}*/
+
+void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
+    float dx = prey.x - predator.x;
+    float dy = prey.y - predator.y;
+
+    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
+
+    if (distance > 0.0f) {
+        // Desired direction away from predator
+        float targetDx = dx / distance;
+        float targetDy = dy / distance;
+
+        // How quickly prey can turn
+        float turnSpeed = 5.0f;
+
+        // Gradually move current direction
+        // toward desired direction
+
+        prey.dx = prey.dx + (targetDx - prey.dx) * turnSpeed * deltaTime;
+        prey.dy = prey.dy + (targetDy - prey.dy) * turnSpeed * deltaTime;
+
+
+        // Normalize again
+        float length = sqrt(pow(prey.dx, 2) + pow(prey.dy, 2));
+
+        if (length > 0.0f) {
+            prey.dx = prey.dx / length;
+            prey.dy = prey.dy / length;
+        }
     }
 }
 
@@ -222,7 +255,7 @@ int main()
     // Predator and prey
     // ==================================================
 
-    Predator predator = {1.0f, 1.0f, 0.1f};
+    Predator predator = {1.0f, 1.0f, 0.3f};
     //Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
 
     Prey prey[PREY_COUNT];
@@ -307,9 +340,11 @@ int main()
 
             if (distance_prey < FLEE_DISTANCE) {
                 // Predator is close, run away from predator
-                fleeFromPredator(prey[i], predator);
+                fleeFromPredator(prey[i], predator, deltaTime);
+                prey[i].speed = FLEE_PREY_SPEED;
             } else {
                 // Predator is far, continue random movement
+                prey[i].speed = NORMAL_PREY_SPEED;
                 prey[i].directionTimer = prey[i].directionTimer + deltaTime;
 
                 if (prey[i].directionTimer >= prey[i].directionChangeTime) {
