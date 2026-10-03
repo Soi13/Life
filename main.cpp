@@ -10,6 +10,9 @@
 using namespace std;
 
 const int PREY_COUNT = 10;
+const int HERB_COUNT = 20;
+const float PREY_STARVATION_TIME = 15.0f;  // Seconds without food
+const float HERB_EAT_DISTANCE    = 2.0f;
 const float CATCH_DISTANCE = 3.0f;
 const float FLEE_DISTANCE = 20.0f;
 const float NORMAL_PREY_SPEED = 10.0f;
@@ -29,6 +32,14 @@ struct Prey {
     float speed;
     float directionTimer;
     float directionChangeTime;
+    bool alive;
+    float timeSinceMeal;
+};
+
+struct Herb {
+    float x;
+    float y;
+
     bool alive;
 };
 
@@ -88,9 +99,56 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
 }
 
 // ==================================================
+// FIND NEAREST HERB
+// ==================================================
+int findNearestHerb(const Prey& prey, Herb herbs[]) {
+    int nearestHerb = -1;
+    float nearestDistance = 1000000.0f;
+
+    for (int i = 0; i < HERB_COUNT; i++) {
+        if (!herbs[i].alive) {
+            continue;
+        }
+
+        float dx = herbs[i].x - prey.x;
+        float dy = herbs[i].y - prey.y;
+        float distance = sqrt(dx * dx + dy * dy);
+
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestHerb = i;
+        }
+    }
+
+    return nearestHerb;
+}
+
+// ==================================================
+// MOVE TOWARD HERB
+// ==================================================
+void moveTowardHerb(Prey& prey, const Herb& herb) {
+    float dx = herb.x - prey.x;
+    float dy = herb.y - prey.y;
+    float distance = sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.0f) {
+        prey.dx = dx / distance;
+        prey.dy = dy / distance;
+    }
+}
+
+// ==================================================
+// RANDOM HERB POSITION
+// ==================================================
+void respawnHerb(Herb& herb) {
+    herb.x = static_cast<float>(rand() % 100);
+    herb.y = static_cast<float>(rand() % 100);
+    herb.alive = true;
+}
+
+// ==================================================
 // Vertex shader
 // ==================================================
-
 const char* vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
@@ -103,7 +161,6 @@ const char* vertexShaderSource =
 // ==================================================
 // Fragment shader
 // ==================================================
-
 const char* fragmentShaderSource =
     "#version 330 core\n"
     "out vec4 FragColor;\n"
@@ -118,7 +175,6 @@ const char* fragmentShaderSource =
 // Convert simulation coordinates 0..100
 // to OpenGL coordinates -1..1
 // ==================================================
-
 float convertX(float x) {
     return x / 50.0f - 1.0f;
 }
@@ -252,17 +308,19 @@ int main()
 
 
     // ==================================================
-    // Predator and prey
+    // Predator, prey and herbs
     // ==================================================
 
+    // ==================================================
+    // INITIALIZE PREDATOR
+    // ==================================================
     Predator predator = {1.0f, 1.0f, 0.3f};
-    //Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
-
-    Prey prey[PREY_COUNT];
 
     // ==================================================
     // INITIALIZE ALL PREYS
     // ==================================================
+    Prey prey[PREY_COUNT];
+    //Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
 
     for (int i = 0; i < PREY_COUNT; i++) {
 
@@ -281,13 +339,24 @@ int main()
 
         randomDirection(prey[i]);
 
+        prey[i].timeSinceMeal = 0.0f;
+
         // Alive
         prey[i].alive = true;
     }
 
+    // ==================================================
+    // INITIALIZE ALL HERBS
+    // ==================================================
+    Herb herbs[HERB_COUNT];
+
+    for (int i = 0; i < HERB_COUNT; i++) {
+        respawnHerb(herbs[i]);
+    }
+
 
     // ==================================================
-    // CURRENT TARGET
+    // CURRENT PREDATOR TARGET
     // ==================================================
 
     int currentPrey = 0;
@@ -311,7 +380,7 @@ int main()
 
     // Center + circumference vertices
     float circleVertices[VERTEX_COUNT * 2];
-    float lastTime = glfwGetTime();
+    float lastTime = static_cast<float>(glfwGetTime());
 
 
     // ==================================================
@@ -320,7 +389,7 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
-        float currentTime = glfwGetTime();
+        float currentTime = static_cast<float>(glfwGetTime());
         float deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
@@ -333,6 +402,17 @@ int main()
                 continue;
             }
 
+            // STARVATION TIMER
+            prey[i].timeSinceMeal = prey[i].timeSinceMeal + deltaTime;
+
+            if (prey[i].timeSinceMeal >= PREY_STARVATION_TIME) {
+                prey[i].alive = false;
+
+                cout << "Prey #" << i << " died from starvation" << endl;
+                continue;
+            }
+
+            //Distance to predator
             float dx_prey = prey[i].x - predator.x;
             float dy_prey = prey[i].y - predator.y;
 
@@ -343,13 +423,23 @@ int main()
                 fleeFromPredator(prey[i], predator, deltaTime);
                 prey[i].speed = FLEE_PREY_SPEED;
             } else {
-                // Predator is far, continue random movement
+                // Predator is far. Safe, continue random movement and search food
                 prey[i].speed = NORMAL_PREY_SPEED;
-                prey[i].directionTimer = prey[i].directionTimer + deltaTime;
 
-                if (prey[i].directionTimer >= prey[i].directionChangeTime) {
-                    randomDirection(prey[i]);
-                    prey[i].directionTimer = 0.0f;
+                int herbIndex = findNearestHerb(prey[i], herbs);
+
+                if (herbIndex != -1) {
+                    moveTowardHerb(prey[i], herbs[herbIndex]);
+                } else {
+                    // No herb found:
+                    // random movement
+
+                    prey[i].directionTimer = prey[i].directionTimer + deltaTime;
+
+                    if (prey[i].directionTimer >= prey[i].directionChangeTime) {
+                        randomDirection(prey[i]);
+                        prey[i].directionTimer = 0.0f;
+                    }
                 }
             }
 
@@ -375,6 +465,32 @@ int main()
             if (prey[i].y >= 100.0f) {
                 prey[i].y = 100.0f;
                 prey[i].dy = -prey[i].dy;
+            }
+
+            // ==============================================
+            // CHECK IF PREY EATS HERB
+            // ==============================================
+            for (int h = 0; h < HERB_COUNT; h++) {
+                if (!herbs[h].alive) {
+                    continue;
+                }
+
+                float herbDx = herbs[h].x - prey[i].x;
+                float herbDy = herbs[h].y - prey[i].y;
+
+                float herbDistance = sqrt(herbDx * herbDx + herbDy * herbDy);
+
+                if (herbDistance < HERB_EAT_DISTANCE) {
+                    cout << "Prey #" << i << " ate herb #" << h << endl;
+
+                    // Reset starvation timer
+                    prey[i].timeSinceMeal = 0.0f;
+
+                    // Respawn herb somewhere else
+                    respawnHerb(herbs[h]);
+
+                    break;
+                }
             }
         }
 
@@ -464,6 +580,33 @@ int main()
 
 
         // ==================================================
+        // DRAW HERBS
+        // ==================================================
+
+        for (int i = 0; i < HERB_COUNT; i++) {
+            if (!herbs[i].alive) {
+                continue;
+            }
+
+            float herbX = convertX(herbs[i].x);
+            float herbY = convertY(herbs[i].y);
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+            createCircle(herbX, herbY, 0.015f, circleVertices, SEGMENTS);
+
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(circleVertices), circleVertices);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            // Green
+            glUniform3f(colorLocation, 0.1f, 0.8f, 0.1f);
+            glPointSize(10.0f);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+        }
+
+
+        // ==================================================
         // Draw PREY
         // ==================================================
 
@@ -485,8 +628,8 @@ int main()
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
 
-            // Green
-            glUniform3f(colorLocation, 0.0f, 1.0f, 0.0f);
+            // Blue
+            glUniform3f(colorLocation, 0.2f, 0.5f, 1.0f);
             glPointSize(20.0f);
             glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
         }
