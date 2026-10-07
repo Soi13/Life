@@ -9,6 +9,9 @@
 
 using namespace std;
 
+const float WORLD_WIDTH  = 300.0f;
+const float WORLD_HEIGHT = 300.0f;
+
 const int PREY_COUNT = 10;
 const int HERB_COUNT = 20;
 const float PREY_STARVATION_TIME = 15.0f;  // Seconds without food
@@ -73,7 +76,7 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
     float dx = prey.x - predator.x;
     float dy = prey.y - predator.y;
 
-    float distance = sqrt(dx * dx + dy * dy);
+    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
     if (distance > 0.0f) {
         // Desired direction away from predator
@@ -91,7 +94,7 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
 
 
         // Normalize again
-        float length = sqrt(dx * dx + dy * dy);
+        float length = sqrt(pow(prey.dx, 2) + pow(prey.dy, 2));
 
         if (length > 0.0f) {
             prey.dx = prey.dx / length;
@@ -114,7 +117,7 @@ int findNearestHerb(const Prey& prey, Herb herbs[]) {
 
         float dx = herbs[i].x - prey.x;
         float dy = herbs[i].y - prey.y;
-        float distance = sqrt(dx * dx + dy * dy);
+        float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
         if (distance < nearestDistance) {
             nearestDistance = distance;
@@ -131,7 +134,7 @@ int findNearestHerb(const Prey& prey, Herb herbs[]) {
 void moveTowardHerb(Prey& prey, const Herb& herb) {
     float dx = herb.x - prey.x;
     float dy = herb.y - prey.y;
-    float distance = sqrt(dx * dx + dy * dy);
+    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
     if (distance > 0.0f) {
         prey.dx = dx / distance;
@@ -179,11 +182,13 @@ const char* fragmentShaderSource =
 // to OpenGL coordinates -1..1
 // ==================================================
 float convertX(float x) {
-    return x / 50.0f - 1.0f;
+    //return x / 50.0f - 1.0f;
+    return (x / WORLD_WIDTH) * 2.0f - 1.0f;
 }
 
 float convertY(float y) {
-    return y / 50.0f - 1.0f;
+    //return y / 50.0f - 1.0f;
+    return (y / WORLD_HEIGHT) * 2.0f - 1.0f;
 }
 
 
@@ -398,7 +403,7 @@ int main()
 
         // Update herb regrowth
         for (int i = 0; i < HERB_COUNT; i++) {
-            // Only update eaten herbs
+        // Only update eaten herbs
             if (!herbs[i].alive) {
                 herbs[i].regrowTimer += deltaTime;
                 if (herbs[i].regrowTimer >= HERB_REGROW_TIME) {
@@ -438,7 +443,7 @@ int main()
             float dx_prey = prey[i].x - predator.x;
             float dy_prey = prey[i].y - predator.y;
 
-            float distance_prey = sqrt(dx_prey * dx_prey + dy_prey * dy_prey);
+            float distance_prey = sqrt(pow(dx_prey, 2) + pow(dy_prey, 2));
 
             if (distance_prey < FLEE_DISTANCE) {
                 // Predator is close, run away from predator
@@ -474,8 +479,8 @@ int main()
                 prey[i].dx = -prey[i].dx;
             }
 
-            if (prey[i].x >= 100.0f) {
-                prey[i].x = 100.0f;
+            if (prey[i].x >= WORLD_WIDTH) {
+                prey[i].x = WORLD_WIDTH;
                 prey[i].dx = -prey[i].dx;
             }
 
@@ -484,8 +489,8 @@ int main()
                 prey[i].dy = -prey[i].dy;
             }
 
-            if (prey[i].y >= 100.0f) {
-                prey[i].y = 100.0f;
+            if (prey[i].y >= WORLD_HEIGHT) {
+                prey[i].y = WORLD_HEIGHT;
                 prey[i].dy = -prey[i].dy;
             }
 
@@ -538,7 +543,7 @@ int main()
             float dy = prey[currentPrey].y - predator.y;
 
             // Distance between predator and prey
-            float distance = sqrt(dx * dx + dy * dy);
+            float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
 
             // ==================================================
