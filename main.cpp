@@ -9,8 +9,8 @@
 
 using namespace std;
 
-const float WORLD_WIDTH  = 300.0f;
-const float WORLD_HEIGHT = 300.0f;
+const float WORLD_WIDTH  = 100.0f;
+const float WORLD_HEIGHT = 100.0f;
 
 const int PREY_COUNT = 10;
 const int HERB_COUNT = 20;
@@ -146,8 +146,8 @@ void moveTowardHerb(Prey& prey, const Herb& herb) {
 // RANDOM HERB POSITION
 // ==================================================
 void respawnHerb(Herb& herb) {
-    herb.x = static_cast<float>(rand() % 100);
-    herb.y = static_cast<float>(rand() % 100);
+    herb.x = static_cast<float>(rand()) / RAND_MAX * WORLD_WIDTH;
+    herb.y = static_cast<float>(rand()) / RAND_MAX * WORLD_HEIGHT;
     herb.alive = true;
     herb.regrowTimer = 0.0f;
 }
@@ -322,7 +322,7 @@ int main()
     // ==================================================
     // INITIALIZE PREDATOR
     // ==================================================
-    Predator predator = {1.0f, 1.0f, 0.3f};
+    Predator predator = {WORLD_WIDTH / 2.0f, WORLD_HEIGHT / 2.0f, 0.3f};
 
     // ==================================================
     // INITIALIZE ALL PREYS
@@ -333,8 +333,8 @@ int main()
     for (int i = 0; i < PREY_COUNT; i++) {
 
         // Random position
-        prey[i].x = 20.0f + static_cast<float>(rand() % 70);
-        prey[i].y = 20.0f + static_cast<float>(rand() % 70);
+        prey[i].x = 20.0f + static_cast<float>(rand()) / RAND_MAX * WORLD_WIDTH;
+        prey[i].y = 20.0f + static_cast<float>(rand()) / RAND_MAX * WORLD_HEIGHT;
         prey[i].dx = 0.0f;
         prey[i].dy = 0.0f;
 
@@ -408,8 +408,8 @@ int main()
                 herbs[i].regrowTimer += deltaTime;
                 if (herbs[i].regrowTimer >= HERB_REGROW_TIME) {
                     // New location
-                    herbs[i].x = static_cast<float>(rand() % 100);
-                    herbs[i].y = static_cast<float>(rand() % 100);
+                    herbs[i].x = static_cast<float>(rand()) / RAND_MAX * WORLD_WIDTH;
+                    herbs[i].y = static_cast<float>(rand()) / RAND_MAX * WORLD_HEIGHT;
 
                     // Herb is available again
                     herbs[i].alive = true;
