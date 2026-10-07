@@ -73,7 +73,7 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
     float dx = prey.x - predator.x;
     float dy = prey.y - predator.y;
 
-    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
+    float distance = sqrt(dx * dx + dy * dy);
 
     if (distance > 0.0f) {
         // Desired direction away from predator
@@ -91,7 +91,7 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
 
 
         // Normalize again
-        float length = sqrt(pow(prey.dx, 2) + pow(prey.dy, 2));
+        float length = sqrt(dx * dx + dy * dy);
 
         if (length > 0.0f) {
             prey.dx = prey.dx / length;
@@ -438,7 +438,7 @@ int main()
             float dx_prey = prey[i].x - predator.x;
             float dy_prey = prey[i].y - predator.y;
 
-            float distance_prey = sqrt(pow(dx_prey, 2) + pow(dy_prey, 2));
+            float distance_prey = sqrt(dx_prey * dx_prey + dy_prey * dy_prey);
 
             if (distance_prey < FLEE_DISTANCE) {
                 // Predator is close, run away from predator
@@ -538,7 +538,7 @@ int main()
             float dy = prey[currentPrey].y - predator.y;
 
             // Distance between predator and prey
-            float distance = sqrt(pow(dx, 2) + pow(dy, 2));
+            float distance = sqrt(dx * dx + dy * dy);
 
 
             // ==================================================
