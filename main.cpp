@@ -12,7 +12,8 @@ using namespace std;
 const int PREY_COUNT = 10;
 const int HERB_COUNT = 20;
 const float PREY_STARVATION_TIME = 15.0f;  // Seconds without food
-const float HERB_EAT_DISTANCE    = 2.0f;
+const float HERB_EAT_DISTANCE = 2.0f;
+const float HERB_REGROW_TIME = 8.0f;
 const float CATCH_DISTANCE = 3.0f;
 const float FLEE_DISTANCE = 20.0f;
 const float NORMAL_PREY_SPEED = 10.0f;
@@ -41,6 +42,7 @@ struct Herb {
     float y;
 
     bool alive;
+    float regrowTimer;
 };
 
 void randomDirection(Prey& prey) {
@@ -144,6 +146,7 @@ void respawnHerb(Herb& herb) {
     herb.x = static_cast<float>(rand() % 100);
     herb.y = static_cast<float>(rand() % 100);
     herb.alive = true;
+    herb.regrowTimer = 0.0f;
 }
 
 // ==================================================
@@ -393,6 +396,25 @@ int main()
         float deltaTime = currentTime - lastTime;
         lastTime = currentTime;
 
+        // Update herb regrowth
+        for (int i = 0; i < HERB_COUNT; i++) {
+            // Only update eaten herbs
+            if (!herbs[i].alive) {
+                herbs[i].regrowTimer += deltaTime;
+                if (herbs[i].regrowTimer >= HERB_REGROW_TIME) {
+                    // New location
+                    herbs[i].x = static_cast<float>(rand() % 100);
+                    herbs[i].y = static_cast<float>(rand() % 100);
+
+                    // Herb is available again
+                    herbs[i].alive = true;
+                    herbs[i].regrowTimer = 0.0f;
+
+                    cout << "Herb #" << i << " has grown again" << endl;
+                }
+            }
+        }
+
         // ==================================================
         // Prey algorithm
         // ==================================================
@@ -486,8 +508,14 @@ int main()
                     // Reset starvation timer
                     prey[i].timeSinceMeal = 0.0f;
 
+                    // Herb disappears
+                    herbs[h].alive = false;
+
+                    // Start growth timer
+                    herbs[h].regrowTimer = 0.0f;
+
                     // Respawn herb somewhere else
-                    respawnHerb(herbs[h]);
+                    //respawnHerb(herbs[h]);
 
                     break;
                 }
