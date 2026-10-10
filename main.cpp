@@ -12,7 +12,7 @@ using namespace std;
 const float WORLD_WIDTH  = 100.0f;
 const float WORLD_HEIGHT = 100.0f;
 
-const int PREY_COUNT = 10;
+const int PREY_COUNT = 20;
 const int HERB_COUNT = 20;
 const float PREY_STARVATION_TIME = 15.0f;  // Seconds without food
 const float HERB_EAT_DISTANCE = 2.0f;
@@ -48,6 +48,8 @@ struct Herb {
     float regrowTimer;
 };
 
+
+// Prey's random moving
 void randomDirection(Prey& prey) {
     float dx = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
     float dy = static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f;
@@ -60,18 +62,8 @@ void randomDirection(Prey& prey) {
     }
 }
 
-/*void fleeFromPredator(Prey& prey, const Predator& predator) {
-    float dx = prey.x - predator.x;
-    float dy = prey.y - predator.y;
 
-    float distance = sqrt(pow(dx, 2) + pow(dy, 2));
-
-    if (distance > 0.0f) {
-        prey.dx = dx / distance;
-        prey.dy = dy / distance;
-    }
-}*/
-
+// Prey flee from predator
 void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
     float dx = prey.x - predator.x;
     float dy = prey.y - predator.y;
@@ -103,9 +95,7 @@ void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
     }
 }
 
-// ==================================================
-// FIND NEAREST HERB
-// ==================================================
+// Find nearest herb
 int findNearestHerb(const Prey& prey, Herb herbs[]) {
     int nearestHerb = -1;
     float nearestDistance = 1000000.0f;
@@ -128,9 +118,7 @@ int findNearestHerb(const Prey& prey, Herb herbs[]) {
     return nearestHerb;
 }
 
-// ==================================================
-// MOVE TOWARD HERB
-// ==================================================
+// Move toward herb
 void moveTowardHerb(Prey& prey, const Herb& herb) {
     float dx = herb.x - prey.x;
     float dy = herb.y - prey.y;
@@ -142,9 +130,7 @@ void moveTowardHerb(Prey& prey, const Herb& herb) {
     }
 }
 
-// ==================================================
-// RANDOM HERB POSITION
-// ==================================================
+// Random herb position
 void respawnHerb(Herb& herb) {
     herb.x = static_cast<float>(rand()) / RAND_MAX * WORLD_WIDTH;
     herb.y = static_cast<float>(rand()) / RAND_MAX * WORLD_HEIGHT;
@@ -152,9 +138,7 @@ void respawnHerb(Herb& herb) {
     herb.regrowTimer = 0.0f;
 }
 
-// ==================================================
 // Vertex shader
-// ==================================================
 const char* vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec2 aPos;\n"
@@ -164,9 +148,7 @@ const char* vertexShaderSource =
     "}\0";
 
 
-// ==================================================
 // Fragment shader
-// ==================================================
 const char* fragmentShaderSource =
     "#version 330 core\n"
     "out vec4 FragColor;\n"
@@ -177,21 +159,16 @@ const char* fragmentShaderSource =
     "}\0";
 
 
-// ==================================================
-// Convert simulation coordinates 0..100
-// to OpenGL coordinates -1..1
-// ==================================================
+// Convert simulation coordinates 0..100 to OpenGL coordinates -1..1
 float convertX(float x) {
-    //return x / 50.0f - 1.0f;
     return (x / WORLD_WIDTH) * 2.0f - 1.0f;
 }
 
 float convertY(float y) {
-    //return y / 50.0f - 1.0f;
     return (y / WORLD_HEIGHT) * 2.0f - 1.0f;
 }
 
-
+// Create circle shape for preys, herbs and predators
 void createCircle(float x, float y, float radius, float* vertices, int segments) {
     vertices[0] = x;
     vertices[1] = y;
@@ -209,29 +186,20 @@ int main()
     //Initialize the random generator
     srand(time(nullptr));
 
-    // ==================================================
-    // 1. Initialize GLFW
-    // ==================================================
-
+    // Initialize GLFW
     if (!glfwInit()) {
         cout << "ERROR: GLFW initialization failed\n";
         return -1;
     }
 
 
-    // ==================================================
-    // 2. Request OpenGL 3.3 Core
-    // ==================================================
-
+    // Request OpenGL 3.3 Core
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    // ==================================================
-    // 3. Create window
-    // ==================================================
-
+    // Create window
     GLFWwindow* window = glfwCreateWindow(800, 800, "Transparent Moving 3D Cube", nullptr, nullptr);
 
     if (!window) {
@@ -241,17 +209,11 @@ int main()
     }
 
 
-    // ==================================================
-    // 4. Make OpenGL context current
-    // ==================================================
-
+    // Make OpenGL context current
     glfwMakeContextCurrent(window);
 
 
-    // ==================================================
-    // 5. Initialize GLAD
-    // ==================================================
-
+    // Initialize GLAD
     if (gladLoadGL(glfwGetProcAddress) == 0) {
         cout << "ERROR: Failed to initialize GLAD\n";
         glfwDestroyWindow(window);
@@ -260,30 +222,21 @@ int main()
     }
 
 
-    // ==================================================
     // Create vertex shader
-    // ==================================================
-
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
 
 
-    // ==================================================
     // Create fragment shader
-    // ==================================================
-
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
 
 
-    // ==================================================
     // Create shader program
-    // ==================================================
-
     unsigned int shaderProgram = glCreateProgram();
 
     glAttachShader(shaderProgram, vertexShader);
@@ -292,46 +245,30 @@ int main()
 
 
     // Shaders are now inside the program
-
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
 
-    // ==================================================
     // Create VAO
-    // ==================================================
-
     unsigned int VAO;
 
     glGenVertexArrays(1, &VAO);
 
 
-    // ==================================================
     // Create VBO
-    // ==================================================
-
     unsigned int VBO;
 
     glGenBuffers(1, &VBO);
 
 
-    // ==================================================
     // Predator, prey and herbs
-    // ==================================================
 
-    // ==================================================
-    // INITIALIZE PREDATOR
-    // ==================================================
+    // Initialize predator
     Predator predator = {WORLD_WIDTH / 2.0f, WORLD_HEIGHT / 2.0f, 0.3f};
 
-    // ==================================================
-    // INITIALIZE ALL PREYS
-    // ==================================================
+    // Initialize all preys
     Prey prey[PREY_COUNT];
-    //Prey prey = {30.0f, 50.0f, 0.0f, 0.0f, 15.0f, 0.0f, 1.0f};
-
     for (int i = 0; i < PREY_COUNT; i++) {
-
         // Random position
         prey[i].x = 20.0f + static_cast<float>(rand()) / RAND_MAX * WORLD_WIDTH;
         prey[i].y = 20.0f + static_cast<float>(rand()) / RAND_MAX * WORLD_HEIGHT;
@@ -353,36 +290,24 @@ int main()
         prey[i].alive = true;
     }
 
-    // ==================================================
-    // INITIALIZE ALL HERBS
-    // ==================================================
+    // Initialize all herbs
     Herb herbs[HERB_COUNT];
-
     for (int i = 0; i < HERB_COUNT; i++) {
         respawnHerb(herbs[i]);
     }
 
 
-    // ==================================================
-    // CURRENT PREDATOR TARGET
-    // ==================================================
-
+    // Current predator target
     int currentPrey = 0;
 
 
-    // ==================================================
-    // FIND FIRST LIVE PREY
-    // ==================================================
-
+    // Find first live prey
     while (currentPrey < PREY_COUNT && !prey[currentPrey].alive) {
         currentPrey++;
     }
 
 
-    // ==================================================
     // Circle settings
-    // ==================================================
-
     const int SEGMENTS = 32;
     const int VERTEX_COUNT = SEGMENTS + 2;
 
@@ -391,10 +316,7 @@ int main()
     float lastTime = static_cast<float>(glfwGetTime());
 
 
-    // ==================================================
     // Main loop
-    // ==================================================
-
     while (!glfwWindowShouldClose(window))
     {
         float currentTime = static_cast<float>(glfwGetTime());
@@ -420,16 +342,14 @@ int main()
             }
         }
 
-        // ==================================================
-        // Prey algorithm
-        // ==================================================
 
+        // Prey algorithm
         for (int i = 0; i < PREY_COUNT; i++) {
             if (!prey[i].alive) {
                 continue;
             }
 
-            // STARVATION TIMER
+            // Starvation timer
             prey[i].timeSinceMeal = prey[i].timeSinceMeal + deltaTime;
 
             if (prey[i].timeSinceMeal >= PREY_STARVATION_TIME) {
@@ -494,9 +414,7 @@ int main()
                 prey[i].dy = -prey[i].dy;
             }
 
-            // ==============================================
-            // CHECK IF PREY EATS HERB
-            // ==============================================
+            // Check if prey eats herb
             for (int h = 0; h < HERB_COUNT; h++) {
                 if (!herbs[h].alive) {
                     continue;
@@ -527,11 +445,8 @@ int main()
             }
         }
 
-        // ==================================================
         // Predator algorithm
-        // ==================================================
-
-        // FIND NEXT LIVE PREY
+        // Find next live prey
         while (currentPrey < PREY_COUNT && !prey[currentPrey].alive) {
             currentPrey++;
         }
@@ -546,10 +461,7 @@ int main()
             float distance = sqrt(pow(dx, 2) + pow(dy, 2));
 
 
-            // ==================================================
             // Has predator caught prey?
-            // ==================================================
-
             if (distance < CATCH_DISTANCE) {
                 cout << "Predator caught prey #" << currentPrey << endl;
 
@@ -573,49 +485,29 @@ int main()
 
             } else {
 
-            // ==================================================
             // Normalize direction
-            // ==================================================
-
             dx = dx / distance;
             dy = dy / distance;
 
-
-            // ==================================================
             // Move predator
-            // ==================================================
-
             predator.x = predator.x + dx * predator.speed;
             predator.y = predator.y + dy * predator.speed;
             }
         }
 
-        // ==================================================
         // Clear screen
-        // ==================================================
-
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
 
-        // ==================================================
         // Use our shader
-        // ==================================================
-
         glUseProgram(shaderProgram);
 
-
-        // ==================================================
         // Get color uniform
-        // ==================================================
-
         int colorLocation = glGetUniformLocation(shaderProgram, "objectColor");
 
 
-        // ==================================================
-        // DRAW HERBS
-        // ==================================================
-
+        // Draw herbs
         for (int i = 0; i < HERB_COUNT; i++) {
             if (!herbs[i].alive) {
                 continue;
@@ -639,10 +531,7 @@ int main()
         }
 
 
-        // ==================================================
-        // Draw PREY
-        // ==================================================
-
+        // Draw prey
         for (int i = 0; i < PREY_COUNT; i++) {
 
             // Don't draw caught prey
@@ -667,10 +556,7 @@ int main()
             glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
         }
 
-        // ==================================================
-        // Draw PREDATOR
-        // ==================================================
-
+        // Draw predator
         float predatorX = convertX(predator.x);
         float predatorY = convertY(predator.y);
 
@@ -683,10 +569,7 @@ int main()
         glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
 
 
-        // ==================================================
         // Finish frame
-        // ==================================================
-
         glfwSwapBuffers(window);
         glfwPollEvents();
 
@@ -695,10 +578,7 @@ int main()
     }
 
 
-    // ==================================================
     // Cleanup
-    // ==================================================
-
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
