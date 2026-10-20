@@ -1,203 +1,481 @@
 <h1>Predator–Prey Ecosystem Simulation</h1>
 
+<p>
 A C++ and OpenGL 3.3 Core simulation of a small artificial ecosystem containing predators, prey, and renewable food resources.
+</p>
 
+<p>
 The simulation models several interacting behaviors: prey search for herbs, eat to avoid starvation, flee from nearby predators, mature over time, find mates, and reproduce. Herbs regrow after being eaten, while the predator continuously hunts living prey.
+</p>
 
-The goal of the project is to experiment with simple autonomous-agent behavior and observe how population, food availability, reproduction, starvation, and predation interact over time.
+<p>
+The purpose of this project is to experiment with autonomous-agent behavior, vector mathematics, population dynamics, and emergent ecosystem behavior.
+</p>
 
-Features
+<hr>
 
-Multiple prey agents
+<h2>Features</h2>
 
-Configurable initial and maximum prey population
+<ul>
+<li>Multiple prey agents</li>
+<li>Predator hunting behavior</li>
+<li>Prey fleeing behavior</li>
+<li>Herb searching</li>
+<li>Starvation system</li>
+<li>Delayed herb regrowth</li>
+<li>Prey aging</li>
+<li>Mate searching</li>
+<li>Prey reproduction</li>
+<li>Newborn prey</li>
+<li>Reproduction cooldown</li>
+<li>Configurable initial population</li>
+<li>Configurable maximum population</li>
+<li>Randomized spawning</li>
+<li>World boundary handling</li>
+<li>Frame-rate independent movement using deltaTime</li>
+<li>OpenGL 3.3 Core rendering</li>
+<li>GLFW window management</li>
+<li>GLAD OpenGL loading</li>
+</ul>
 
-Predator hunting behavior
+<hr>
 
-Prey fleeing behavior
+<h2>Ecosystem</h2>
 
-Herb/food searching
+<p>
+The simulation contains three primary types of entities:
+</p>
 
-Starvation system
+<ul>
+<li><strong>Herbs</strong> — renewable food resources</li>
+<li><strong>Prey</strong> — autonomous agents that eat, flee, survive, and reproduce</li>
+<li><strong>Predator</strong> — hunts and catches living prey</li>
+</ul>
 
-Delayed herb regrowth
+<pre>
+Herbs
+  |
+  | food
+  v
+Prey --------> Reproduction --------> New Prey
+  |
+  | hunted by
+  v
+Predator
+</pre>
 
-Prey aging
+<p>
+Each object follows relatively simple rules. More complex behavior emerges from interactions between these rules.
+</p>
 
-Mate searching
+<hr>
 
-Reproduction and newborn prey
+<h2>Prey Behavior</h2>
 
-Reproduction cooldown
+<p>
+Each prey uses a priority-based decision system.
+</p>
 
-Dynamic reuse of dead prey slots
+<ol>
+<li>Flee from the predator if it is too close</li>
+<li>Search for food when hungry</li>
+<li>Search for a mate when mature and healthy enough</li>
+<li>Search for herbs under normal conditions</li>
+</ol>
 
-Randomized starting positions
+<pre>
+                 PREY
+                   |
+                   v
+         Predator nearby?
+            /          \
+          YES           NO
+           |             |
+           v             v
+         FLEE        Very hungry?
+                     /        \
+                   YES         NO
+                    |           |
+                    v           v
+                Find food   Ready to reproduce?
+                              /          \
+                            YES           NO
+                             |             |
+                             v             v
+                         Find mate      Find food
+</pre>
 
-Random movement when no better target is available
+<hr>
 
-World boundary handling
+<h2>Predator Avoidance</h2>
 
-Frame-rate independent movement using deltaTime
+<p>
+When the predator enters the configured flee distance, prey prioritizes survival.
+</p>
 
-OpenGL 3.3 Core rendering with GLFW and GLAD
+<pre><code>const float FLEE_DISTANCE = 20.0f;</code></pre>
 
-Prey Behavior
+<p>
+The prey calculates a vector pointing away from the predator and changes its movement direction accordingly.
+</p>
 
-Each prey follows a priority-based decision system.
+<p>
+Fleeing prey can also move faster than prey traveling normally.
+</p>
 
-Escape danger
-If the predator enters the flee radius, the prey moves away from it and increases its speed.
+<pre><code>const float NORMAL_PREY_SPEED = 10.0f;
+const float FLEE_PREY_SPEED   = 20.0f;</code></pre>
 
-Find food when hungry
-If the prey has gone too long without eating, finding the nearest available herb becomes its priority.
+<hr>
 
-Reproduce
-Mature and sufficiently fed prey search for another prey that is also ready to reproduce. When two compatible prey meet, a new prey is created.
+<h2>Hunger and Starvation</h2>
 
-Normal food search
-When there is no immediate danger, hunger emergency, or reproduction goal, prey search for nearby food.
+<p>
+Each prey contains a timer that tracks how long it has been since the prey last ate.
+</p>
 
-If a prey fails to eat before its starvation timer expires, it dies.
+<pre><code>const float PREY_STARVATION_TIME = 15.0f;</code></pre>
 
-Herb Behavior
+<p>
+The timer increases using delta time:
+</p>
 
-Herbs act as renewable food resources.
+<pre><code>prey[i].timeSinceMeal += deltaTime;</code></pre>
 
+<p>
+When prey eats a herb, the timer is reset:
+</p>
+
+<pre><code>prey[i].timeSinceMeal = 0.0f;</code></pre>
+
+<p>
+If the starvation timer reaches the configured limit, the prey dies.
+</p>
+
+<hr>
+
+<h2>Herbs</h2>
+
+<p>
+Herbs are renewable food resources.
+</p>
+
+<pre><code>const int HERB_COUNT = 20;</code></pre>
+
+<p>
 When a prey reaches a herb:
+</p>
 
-the prey's starvation timer is reset;
+<ul>
+<li>The prey eats the herb</li>
+<li>The prey starvation timer resets</li>
+<li>The herb disappears</li>
+<li>The herb regrowth timer starts</li>
+<li>After the configured delay, the herb grows again</li>
+<li>The herb appears at a new random location</li>
+</ul>
 
-the herb disappears;
+<pre><code>const float HERB_REGROW_TIME = 8.0f;</code></pre>
 
-a regrowth timer starts;
+<pre>
+Herb grows
+    |
+    v
+Prey eats herb
+    |
+    v
+Herb disappears
+    |
+    v
+Regrowth timer
+    |
+    v
+HERB_REGROW_TIME reached
+    |
+    v
+Herb grows again
+</pre>
 
-after the configured regrowth period, the herb appears again at a new random position.
+<hr>
 
-This prevents food from being instantly available after consumption and creates competition between prey.
+<h2>Reproduction</h2>
 
-Reproduction
-
+<p>
 Prey become capable of reproduction after reaching a configurable age.
+</p>
 
+<pre><code>const float REPRODUCTION_AGE = 20.0f;</code></pre>
+
+<p>
 A prey can reproduce only when:
+</p>
 
-it is alive;
+<ul>
+<li>It is alive</li>
+<li>It has reached reproductive age</li>
+<li>Its reproduction cooldown has expired</li>
+<li>It is not dangerously hungry</li>
+</ul>
 
-it has reached reproductive age;
+<p>
+When reproduction becomes a priority, the prey searches for the nearest eligible mate.
+</p>
 
-its reproduction cooldown has expired;
+<pre>
+Prey A
+   |
+   | searches
+   v
+Prey B
+   |
+   | move toward each other
+   v
+Distance becomes small enough
+   |
+   v
+New prey is created
+</pre>
 
-it is not too hungry.
+<p>
+The required meeting distance is controlled by:
+</p>
 
-When two eligible prey meet within the reproduction distance, one new prey is created between their positions.
+<pre><code>const float REPRODUCTION_DISTANCE = 3.0f;</code></pre>
 
-Both parents then enter a reproduction cooldown period.
+<p>
+After reproduction, both parents enter a cooldown period:
+</p>
 
-The population can grow until MAX_PREY_COUNT is reached.
+<pre><code>const float REPRODUCTION_COOLDOWN = 15.0f;</code></pre>
 
-Predator Behavior
+<p>
+This prevents prey from reproducing continuously every frame.
+</p>
 
-The predator continuously searches for the nearest living prey.
+<hr>
 
-It calculates the normalized direction toward its target and moves toward it each frame.
+<h2>Population</h2>
 
-If the distance becomes smaller than CATCH_DISTANCE, the prey is removed from the simulation.
+<p>
+The simulation uses separate values for the starting population and maximum population.
+</p>
 
-Because new prey can be born in previously unused or dead array slots, the predator dynamically searches for living prey instead of following a fixed sequential target list.
+<pre><code>const int INITIAL_PREY_COUNT = 20;
+const int MAX_PREY_COUNT     = 100;</code></pre>
 
-Main Configuration Parameters
+<p>
+<strong>INITIAL_PREY_COUNT</strong> controls how many prey exist when the simulation starts.
+</p>
 
-The simulation can be tuned using constants near the top of the source file:
+<p>
+<strong>MAX_PREY_COUNT</strong> determines the maximum population capacity, including newborn prey.
+</p>
+
+<p>
+Dead prey slots can later be reused for newborn prey.
+</p>
+
+<hr>
+
+<h2>Predator Behavior</h2>
+
+<p>
+The predator dynamically searches for living prey and selects a target.
+</p>
+
+<p>
+The direction toward the target is calculated using:
+</p>
+
+<pre><code>float dx = prey.x - predator.x;
+float dy = prey.y - predator.y;</code></pre>
+
+<p>
+The distance is calculated using:
+</p>
+
+<pre><code>float distance = sqrt(dx * dx + dy * dy);</code></pre>
+
+<p>
+The direction vector is normalized:
+</p>
+
+<pre><code>dx /= distance;
+dy /= distance;</code></pre>
+
+<p>
+The predator then moves using delta time:
+</p>
+
+<pre><code>predator.x += dx * predator.speed * deltaTime;
+predator.y += dy * predator.speed * deltaTime;</code></pre>
+
+<p>
+When the predator reaches the configured catch distance, the prey is removed from the simulation.
+</p>
+
+<pre><code>const float CATCH_DISTANCE = 3.0f;</code></pre>
+
+<hr>
+
+<h2>Delta Time</h2>
+
+<p>
+Movement is frame-rate independent.
+</p>
+
+<p>
+The time between frames is calculated using GLFW:
+</p>
+
+<pre><code>float currentTime = glfwGetTime();
+
+float deltaTime = currentTime - lastTime;
+
+lastTime = currentTime;</code></pre>
+
+<p>
+Movement then follows:
+</p>
+
+<pre><code>position += direction * speed * deltaTime;</code></pre>
+
+<p>
+This keeps movement speed approximately consistent even when frame rate changes.
+</p>
+
+<hr>
+
+<h2>World Coordinates</h2>
+
+<p>
+The simulation uses its own world coordinate system.
+</p>
+
+<pre><code>const float WORLD_WIDTH  = 200.0f;
+const float WORLD_HEIGHT = 200.0f;</code></pre>
+
+<p>
+Simulation coordinates are converted to OpenGL normalized device coordinates from -1 to +1.
+</p>
+
+<pre><code>float convertX(float x)
+{
+    return (x / WORLD_WIDTH) * 2.0f - 1.0f;
+}
+
+float convertY(float y)
+{
+    return (y / WORLD_HEIGHT) * 2.0f - 1.0f;
+}</code></pre>
+
+<hr>
+
+<h2>Main Configuration</h2>
+
+<p>
+Most ecosystem behavior can be adjusted using constants near the beginning of the source file.
+</p>
+
+<pre><code>const float WORLD_WIDTH  = 200.0f;
+const float WORLD_HEIGHT = 200.0f;
 
 const int INITIAL_PREY_COUNT = 20;
 const int MAX_PREY_COUNT     = 100;
-const int HERB_COUNT         = 20;
+
+const int HERB_COUNT = 20;
 
 const float PREY_STARVATION_TIME = 15.0f;
-const float HERB_REGROW_TIME     = 8.0f;
+
+const float HERB_EAT_DISTANCE = 2.0f;
+const float HERB_REGROW_TIME  = 8.0f;
+
+const float CATCH_DISTANCE = 3.0f;
+const float FLEE_DISTANCE  = 20.0f;
+
+const float NORMAL_PREY_SPEED = 10.0f;
+const float FLEE_PREY_SPEED   = 20.0f;
 
 const float REPRODUCTION_AGE      = 20.0f;
 const float REPRODUCTION_DISTANCE = 3.0f;
 const float REPRODUCTION_COOLDOWN = 15.0f;
 
-const float FLEE_DISTANCE = 20.0f;
+const float HUNGER_PRIORITY_TIME = 8.0f;</code></pre>
 
-const float NORMAL_PREY_SPEED = 10.0f;
-const float FLEE_PREY_SPEED   = 20.0f;
+<hr>
 
-Changing these parameters can produce very different ecosystem behavior.
+<h2>Technologies</h2>
 
-For example, faster herb regrowth and shorter reproduction cooldowns can cause rapid population growth, while slower food regeneration and shorter starvation times can cause population collapse.
+<ul>
+<li>C++</li>
+<li>OpenGL 3.3 Core Profile</li>
+<li>GLFW</li>
+<li>GLAD</li>
+<li>GLSL</li>
+</ul>
 
-Technologies
+<hr>
 
-C++
+<h2>Project Goals</h2>
 
-OpenGL 3.3 Core Profile
+<p>
+This project is intended to explore and practice:
+</p>
 
-GLFW
+<ul>
+<li>C++ programming</li>
+<li>OpenGL graphics</li>
+<li>Vector mathematics</li>
+<li>Normalized vectors</li>
+<li>Distance calculations</li>
+<li>Autonomous agents</li>
+<li>Simple artificial intelligence</li>
+<li>Steering behaviors</li>
+<li>Predator-prey systems</li>
+<li>Resource competition</li>
+<li>Population dynamics</li>
+<li>Starvation</li>
+<li>Reproduction</li>
+<li>Emergent behavior</li>
+</ul>
 
-GLAD
+<p>
+The simulation intentionally uses relatively simple individual rules. More complex behavior emerges from interactions between prey, food resources, reproduction, and predation.
+</p>
 
-Purpose
+<hr>
 
-This project is primarily a learning and experimentation project focused on:
+<h2>Possible Future Improvements</h2>
 
-C++ programming
+<ul>
+<li>Prey vision radius</li>
+<li>Predator vision radius</li>
+<li>Limited field of view</li>
+<li>Multiple predators</li>
+<li>Predator hunger</li>
+<li>Predator starvation</li>
+<li>Predator reproduction</li>
+<li>Different prey sexes</li>
+<li>Genetic traits</li>
+<li>Trait inheritance</li>
+<li>Mutation</li>
+<li>Individual movement speeds</li>
+<li>Natural aging and death</li>
+<li>Reproduction energy cost</li>
+<li>Visible herb growth stages</li>
+<li>Obstacles</li>
+<li>Water</li>
+<li>Terrain</li>
+<li>Safe areas</li>
+<li>Herding behavior</li>
+<li>Boids / flocking behavior</li>
+<li>Population counters</li>
+<li>FPS display</li>
+<li>Simulation statistics</li>
+<li>Population graphs</li>
+<li>Pause and resume controls</li>
+<li>Simulation speed controls</li>
+<li>Saving statistics to files</li>
+<li>Spatial partitioning for larger populations</li>
+</ul>
 
-OpenGL rendering
-
-vector mathematics
-
-movement and steering behaviors
-
-simulation timing
-
-simple artificial intelligence
-
-population dynamics
-
-emergent behavior
-
-The simulation is intentionally based on simple rules. More complex behavior emerges from the interaction between those rules rather than from a centralized controller.
-
-Possible Future Improvements
-
-Potential extensions include:
-
-limited prey vision range;
-
-predator vision range;
-
-multiple predators;
-
-prey genetics and inherited traits;
-
-variable movement speed;
-
-reproduction energy cost;
-
-herb growth stages;
-
-natural prey lifespan;
-
-predator hunger and starvation;
-
-predator reproduction;
-
-multiple food types;
-
-obstacles and terrain;
-
-flocking behavior;
-
-spatial partitioning for larger populations;
-
-population statistics and graphs;
-
-displaying age, hunger, and reproduction state visually;
-
-saving simulation results to a file.
-
-The long-term idea is to evolve the project from a simple predator–prey animation into a more complete artificial ecosystem simulation.
