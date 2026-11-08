@@ -9,42 +9,52 @@
 using namespace std;
 
 
-// World settings
-const float WORLD_WIDTH  = 100.0f;
+// WORLD SETTINGS
+const float WORLD_WIDTH = 100.0f;
 const float WORLD_HEIGHT = 100.0f;
 
-//Prey population settings
+// PREY SETTINGS
 const int INITIAL_PREY_COUNT = 20;
-const int MAX_PREY_COUNT     = 100;
-
-// Herb settings
-const int HERB_COUNT = 20;
+const int MAX_PREY_COUNT = 100;
 const float PREY_STARVATION_TIME = 15.0f;
+const float NORMAL_PREY_SPEED = 10.0f;
+const float FLEE_PREY_SPEED = 20.0f;
+const float FLEE_DISTANCE = 20.0f;
+const float PREY_REPRODUCTION_AGE = 20.0f;
+const float PREY_REPRODUCTION_DISTANCE = 3.0f;
+const float PREY_REPRODUCTION_COOLDOWN = 15.0f;
+const float PREY_HUNGER_PRIORITY_TIME = 8.0f;
+
+// PREDATOR SETTINGS
+const int INITIAL_PREDATOR_COUNT = 3;
+const int MAX_PREDATOR_COUNT = 30;
+const float NORMAL_PREDATOR_SPEED = 15.0f;
+const float CATCH_DISTANCE = 3.0f;
+const float PREDATOR_STARVATION_TIME = 30.0f;
+const float PREDATOR_REPRODUCTION_AGE = 30.0f;
+const float PREDATOR_REPRODUCTION_DISTANCE = 4.0f;
+const float PREDATOR_REPRODUCTION_COOLDOWN = 25.0f;
+const float PREDATOR_HUNGER_PRIORITY_TIME = 15.0f;
+
+// HERB SETTINGS
+const int HERB_COUNT = 30;
 const float HERB_EAT_DISTANCE = 2.0f;
 const float HERB_REGROW_TIME = 8.0f;
 
-// Predator / prey settings
-const float CATCH_DISTANCE = 3.0f;
-const float FLEE_DISTANCE = 20.0f;
-const float NORMAL_PREY_SPEED = 10.0f;
-const float FLEE_PREY_SPEED = 20.0f;
-
-// Reproduction settings
-const float REPRODUCTION_AGE = 20.0f;
-const float REPRODUCTION_DISTANCE = 3.0f;
-const float REPRODUCTION_COOLDOWN = 15.0f;
-
-
-const float HUNGER_PRIORITY_TIME = 8.0f;
-
+// GRAPHICS
 const float PI = 3.14159265359f;
 
-
-// Structures
+// STRUCTURES
 struct Predator {
     float x;
     float y;
+    float dx;
+    float dy;
     float speed;
+    bool alive;
+    float timeSinceMeal;
+    float age;
+    float reproductionCooldown;
 };
 
 struct Prey {
@@ -68,17 +78,18 @@ struct Herb {
     float regrowTimer;
 };
 
-
-// Useful for prey positions, directions, etc.
+// RANDOM FLOAT
 float randomFloat(float minimum, float maximum) {
-    float random = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-    return minimum + random * (maximum - minimum);
+    float value = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+
+    return minimum + value * (maximum - minimum);
 }
 
-// Prey's random moving
+// RANDOM PREY DIRECTION
 void randomDirection(Prey& prey) {
     float dx = randomFloat(-1.0f, 1.0f);
     float dy = randomFloat(-1.0f, 1.0f);
+
     float length = sqrt(dx * dx + dy * dy);
 
     if (length > 0.0f) {
@@ -87,34 +98,72 @@ void randomDirection(Prey& prey) {
     }
 }
 
-// Prey flee from predator
-void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
-    float dx = prey.x - predator.x;
-    float dy = prey.y - predator.y;
-    float distance = sqrt(dx * dx + dy * dy);
+// RANDOM PREDATOR DIRECTION
+void randomPredatorDirection(Predator& predator) {
+    float dx = randomFloat(-1.0f, 1.0f);
+    float dy = randomFloat(-1.0f, 1.0f);
 
-    if (distance > 0.0f) {
-        // Desired direction away from predator
-        float targetDx = dx / distance;
-        float targetDy = dy / distance;
+    float length = sqrt(dx * dx + dy * dy);
 
-        // How quickly prey can turn
-        float turnSpeed = 5.0f;
-
-        // Gradually move current direction toward desired direction
-        prey.dx = prey.dx + (targetDx - prey.dx) * turnSpeed * deltaTime;
-        prey.dy = prey.dy + (targetDy - prey.dy) * turnSpeed * deltaTime;
-
-        // Normalize again
-        float length = sqrt(prey.dx * prey.dx + prey.dy * prey.dy);
-        if (length > 0.0f) {
-            prey.dx = prey.dx / length;
-            prey.dy = prey.dy / length;
-        }
+    if (length > 0.0f) {
+        predator.dx = dx / length;
+        predator.dy = dy / length;
     }
 }
 
-// Find nearest herb
+// INITIALIZE PREY
+void initializePrey(Prey& prey, float x, float y) {
+    prey.x = x;
+    prey.y = y;
+
+    prey.dx = 0.0f;
+    prey.dy = 0.0f;
+
+    prey.speed = NORMAL_PREY_SPEED;
+
+    prey.directionTimer = 0.0f;
+    prey.directionChangeTime = randomFloat(1.0f, 3.0f);
+
+    prey.alive = true;
+
+    prey.timeSinceMeal = 0.0f;
+
+    prey.age = 0.0f;
+    prey.reproductionCooldown = 0.0f;
+
+    randomDirection(prey);
+}
+
+// INITIALIZE PREDATOR
+void initializePredator(Predator& predator, float x, float y) {
+    predator.x = x;
+    predator.y = y;
+
+    predator.dx = 0.0f;
+    predator.dy = 0.0f;
+
+    predator.speed = NORMAL_PREDATOR_SPEED;
+
+    predator.alive = true;
+
+    predator.timeSinceMeal = 0.0f;
+
+    predator.age = 0.0f;
+    predator.reproductionCooldown = 0.0f;
+
+    randomPredatorDirection(predator);
+}
+
+// RESPAWN HERB
+void respawnHerb(Herb& herb) {
+    herb.x = randomFloat(0.0f, WORLD_WIDTH);
+    herb.y = randomFloat(0.0f, WORLD_HEIGHT);
+
+    herb.alive = true;
+    herb.regrowTimer = 0.0f;
+}
+
+// FIND NEAREST HERB
 int findNearestHerb(const Prey& prey, Herb herbs[]) {
     int nearestHerb = -1;
     float nearestDistance = 1000000.0f;
@@ -126,6 +175,7 @@ int findNearestHerb(const Prey& prey, Herb herbs[]) {
 
         float dx = herbs[i].x - prey.x;
         float dy = herbs[i].y - prey.y;
+
         float distance = sqrt(dx * dx + dy * dy);
 
         if (distance < nearestDistance) {
@@ -137,10 +187,11 @@ int findNearestHerb(const Prey& prey, Herb herbs[]) {
     return nearestHerb;
 }
 
-// Move toward herb
+// MOVE PREY TOWARD HERB
 void moveTowardHerb(Prey& prey, const Herb& herb) {
     float dx = herb.x - prey.x;
     float dy = herb.y - prey.y;
+
     float distance = sqrt(dx * dx + dy * dy);
 
     if (distance > 0.0f) {
@@ -149,55 +200,77 @@ void moveTowardHerb(Prey& prey, const Herb& herb) {
     }
 }
 
-// Random herb position
-void respawnHerb(Herb& herb) {
-    herb.x = randomFloat(0.0f, WORLD_WIDTH);
-    herb.y = randomFloat(0.0f, WORLD_HEIGHT);
-    herb.alive = true;
-    herb.regrowTimer = 0.0f;
+// FIND NEAREST PREDATOR
+int findNearestPredator(const Prey& prey, Predator predators[]) {
+    int nearestPredator = -1;
+    float nearestDistance = 1000000.0f;
+
+    for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+        if (!predators[i].alive) {
+            continue;
+        }
+
+        float dx = predators[i].x - prey.x;
+        float dy = predators[i].y - prey.y;
+
+        float distance = sqrt(dx * dx + dy * dy);
+
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestPredator = i;
+        }
+    }
+
+    return nearestPredator;
 }
 
-void initializePrey(Prey& prey, float x, float y) {
-    prey.x = x;
-    prey.y = y;
-    prey.dx = 0.0f;
-    prey.dy = 0.0f;
-    prey.speed = NORMAL_PREY_SPEED;
-    prey.directionTimer = 0.0f;
-    prey.directionChangeTime = randomFloat(1.0f, 3.0f);
-    prey.timeSinceMeal = 0.0f;
-    prey.alive = true;
+// PREY FLEE FROM PREDATOR
+void fleeFromPredator(Prey& prey, const Predator& predator, float deltaTime) {
+    float dx = prey.x - predator.x;
+    float dy = prey.y - predator.y;
 
-    // Reproduction
-    prey.age = 0.0f;
-    prey.reproductionCooldown = 0.0f;
+    float distance = sqrt(dx * dx + dy * dy);
 
-    randomDirection(prey);
+    if (distance > 0.0f) {
+        float targetDx = dx / distance;
+        float targetDy = dy / distance;
+
+        float turnSpeed = 5.0f;
+
+        prey.dx += (targetDx - prey.dx) * turnSpeed * deltaTime;
+        prey.dy += (targetDy - prey.dy) * turnSpeed * deltaTime;
+
+        float length = sqrt(prey.dx * prey.dx + prey.dy * prey.dy);
+
+        if (length > 0.0f) {
+            prey.dx /= length;
+            prey.dy /= length;
+        }
+    }
 }
 
-// Can prey reproduce?
-bool canReproduce(const Prey& prey) {
-    return prey.alive && prey.age >= REPRODUCTION_AGE && prey.reproductionCooldown <= 0.0f && prey.timeSinceMeal < HUNGER_PRIORITY_TIME;
+// CAN PREY REPRODUCE
+bool canPreyReproduce(const Prey& prey) {
+    return prey.alive && prey.age >= PREY_REPRODUCTION_AGE && prey.reproductionCooldown <= 0.0f && prey.timeSinceMeal < PREY_HUNGER_PRIORITY_TIME;
 }
 
-// Find nearest mate
-int findNearestMate(int currentPrey, Prey prey[]) {
+// FIND NEAREST PREY MATE
+int findNearestPreyMate(int currentPrey, Prey prey[]) {
     int nearestMate = -1;
     float nearestDistance = 1000000.0f;
 
     for (int i = 0; i < MAX_PREY_COUNT; i++) {
-        // Cannot mate with itself
         if (i == currentPrey) {
             continue;
         }
 
-        // Mate must also be ready
-        if (!canReproduce(prey[i])) {
+        if (!canPreyReproduce(prey[i])) {
             continue;
         }
 
         float dx = prey[i].x - prey[currentPrey].x;
         float dy = prey[i].y - prey[currentPrey].y;
+
         float distance = sqrt(dx * dx + dy * dy);
 
         if (distance < nearestDistance) {
@@ -209,10 +282,11 @@ int findNearestMate(int currentPrey, Prey prey[]) {
     return nearestMate;
 }
 
-// Move toward another prey
+// MOVE PREY TOWARD ANOTHER PREY
 void moveTowardPrey(Prey& prey, const Prey& mate) {
     float dx = mate.x - prey.x;
     float dy = mate.y - prey.y;
+
     float distance = sqrt(dx * dx + dy * dy);
 
     if (distance > 0.0f) {
@@ -221,8 +295,7 @@ void moveTowardPrey(Prey& prey, const Prey& mate) {
     }
 }
 
-// Find empty slot for new baby
-// Dead prey slots can later be reused.
+// FIND EMPTY PREY SLOT
 int findEmptyPreySlot(Prey prey[]) {
     for (int i = 0; i < MAX_PREY_COUNT; i++) {
         if (!prey[i].alive) {
@@ -233,35 +306,29 @@ int findEmptyPreySlot(Prey prey[]) {
     return -1;
 }
 
-// Create baby
+// CREATE BABY PREY
 void createBabyPrey(Prey prey[], int parent1, int parent2) {
-    int babyIndex = findEmptyPreySlot(prey);
+    int baby = findEmptyPreySlot(prey);
 
-    // Population reached MAX_PREY_COUNT
-    if (babyIndex == -1)
-    {
-        cout << "Maximum prey population reached." << endl;
+    if (baby == -1) {
+        cout << "Maximum prey population reached" << endl;
         return;
     }
 
-    // Baby appears between parents
-    float babyX = (prey[parent1].x + prey[parent2].x) / 2.0f;
-    float babyY = (prey[parent1].y + prey[parent2].y) / 2.0f;
+    float x = (prey[parent1].x + prey[parent2].x) / 2.0f;
+    float y = (prey[parent1].y + prey[parent2].y) / 2.0f;
 
-    initializePrey(prey[babyIndex], babyX, babyY);
+    initializePrey(prey[baby], x, y);
 
-    // Baby must grow up before reproduction anyway, but setting cooldown is also reasonable.
-    prey[babyIndex].reproductionCooldown = REPRODUCTION_COOLDOWN;
+    prey[baby].reproductionCooldown = PREY_REPRODUCTION_COOLDOWN;
 
-    // Both parents enter cooldown
-    prey[parent1].reproductionCooldown = REPRODUCTION_COOLDOWN;
-    prey[parent2].reproductionCooldown = REPRODUCTION_COOLDOWN;
+    prey[parent1].reproductionCooldown = PREY_REPRODUCTION_COOLDOWN;
+    prey[parent2].reproductionCooldown = PREY_REPRODUCTION_COOLDOWN;
 
-
-    cout << "NEW PREY BORN! #" << babyIndex << " Parents: #" << parent1 << " and #" << parent2 << endl;
+    cout << "NEW PREY BORN! #" << baby << endl;
 }
 
-// Find nearest living prey for predator
+// FIND NEAREST PREY
 int findNearestPrey(const Predator& predator, Prey prey[]) {
     int nearestPrey = -1;
     float nearestDistance = 1000000.0f;
@@ -273,6 +340,7 @@ int findNearestPrey(const Predator& predator, Prey prey[]) {
 
         float dx = prey[i].x - predator.x;
         float dy = prey[i].y - predator.y;
+
         float distance = sqrt(dx * dx + dy * dy);
 
         if (distance < nearestDistance) {
@@ -284,38 +352,109 @@ int findNearestPrey(const Predator& predator, Prey prey[]) {
     return nearestPrey;
 }
 
+// CAN PREDATOR REPRODUCE
+bool canPredatorReproduce(const Predator& predator) {
+    return predator.alive && predator.age >= PREDATOR_REPRODUCTION_AGE && predator.reproductionCooldown <= 0.0f && predator.timeSinceMeal < PREDATOR_HUNGER_PRIORITY_TIME;
+}
 
-// Vertex shader
-const char* vertexShaderSource =
-    "#version 330 core\n"
-    "layout (location = 0) in vec2 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
-    "}\0";
+// FIND NEAREST PREDATOR MATE
+int findNearestPredatorMate(int currentPredator, Predator predators[]) {
+    int nearestMate = -1;
+    float nearestDistance = 1000000.0f;
 
+    for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+        if (i == currentPredator) {
+            continue;
+        }
 
-// Fragment shader
-const char* fragmentShaderSource =
-    "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "uniform vec3 objectColor;\n"
-    "void main()\n"
-    "{\n"
-    "    FragColor = vec4(objectColor, 1.0);\n"
-    "}\0";
+        if (!canPredatorReproduce(predators[i])) {
+            continue;
+        }
 
+        float dx = predators[i].x - predators[currentPredator].x;
+        float dy = predators[i].y - predators[currentPredator].y;
 
-// Convert simulation coordinates to OpenGL coordinates -1..1
+        float distance = sqrt(dx * dx + dy * dy);
+
+        if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestMate = i;
+        }
+    }
+
+    return nearestMate;
+}
+
+// MOVE PREDATOR TOWARD PREDATOR
+void movePredatorTowardPredator(Predator& predator, const Predator& mate) {
+    float dx = mate.x - predator.x;
+    float dy = mate.y - predator.y;
+
+    float distance = sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.0f) {
+        predator.dx = dx / distance;
+        predator.dy = dy / distance;
+    }
+}
+
+// MOVE PREDATOR TOWARD PREY
+void movePredatorTowardPrey(Predator& predator, const Prey& prey) {
+    float dx = prey.x - predator.x;
+    float dy = prey.y - predator.y;
+
+    float distance = sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.0f) {
+        predator.dx = dx / distance;
+        predator.dy = dy / distance;
+    }
+}
+
+// FIND EMPTY PREDATOR SLOT
+int findEmptyPredatorSlot(Predator predators[]) {
+    for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+        if (!predators[i].alive) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+// CREATE BABY PREDATOR
+void createBabyPredator(Predator predators[], int parent1, int parent2) {
+    int baby = findEmptyPredatorSlot(predators);
+
+    if (baby == -1) {
+        cout << "Maximum predator population reached" << endl;
+        return;
+    }
+
+    float x = (predators[parent1].x + predators[parent2].x) / 2.0f;
+    float y = (predators[parent1].y + predators[parent2].y) / 2.0f;
+
+    initializePredator(predators[baby], x, y);
+
+    predators[baby].reproductionCooldown = PREDATOR_REPRODUCTION_COOLDOWN;
+
+    predators[parent1].reproductionCooldown = PREDATOR_REPRODUCTION_COOLDOWN;
+    predators[parent2].reproductionCooldown = PREDATOR_REPRODUCTION_COOLDOWN;
+
+    cout << "NEW PREDATOR BORN! #" << baby << endl;
+}
+
+// CONVERT WORLD COORDINATES TO OPENGL
 float convertX(float x) {
     return (x / WORLD_WIDTH) * 2.0f - 1.0f;
 }
+
 
 float convertY(float y) {
     return (y / WORLD_HEIGHT) * 2.0f - 1.0f;
 }
 
-// Create circle shape
+// CREATE CIRCLE
 void createCircle(float x, float y, float radius, float* vertices, int segments) {
     vertices[0] = x;
     vertices[1] = y;
@@ -328,27 +467,45 @@ void createCircle(float x, float y, float radius, float* vertices, int segments)
     }
 }
 
-int main()
-{
-    // Initialize random generator
+// SHADERS
+const char* vertexShaderSource =
+    "#version 330 core\n"
+    "layout (location = 0) in vec2 aPos;\n"
+    "void main()\n"
+    "{\n"
+    "    gl_Position = vec4(aPos, 0.0, 1.0);\n"
+    "}\0";
+
+
+const char* fragmentShaderSource =
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "uniform vec3 objectColor;\n"
+    "void main()\n"
+    "{\n"
+    "    FragColor = vec4(objectColor, 1.0);\n"
+    "}\0";
+
+
+int main() {
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    // Initialize GLFW
+    // GLFW
     if (!glfwInit()) {
-        cout << "ERROR: GLFW initialization failed\n";
+        cout << "ERROR: GLFW initialization failed" << endl;
         return -1;
     }
 
-    // Request OpenGL 3.3 Core
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // Create window
-    GLFWwindow* window = glfwCreateWindow(800, 800, "Predator & Prey Ecosystem", nullptr, nullptr);
+
+    GLFWwindow* window = glfwCreateWindow(800, 800, "Predator Prey Ecosystem", nullptr, nullptr);
 
     if (!window) {
-        cout << "ERROR: Failed to create window\n";
+        cout << "ERROR: Failed to create window" << endl;
+
         glfwTerminate();
 
         return -1;
@@ -357,28 +514,29 @@ int main()
     glfwMakeContextCurrent(window);
 
 
-    // Initialize GLAD
+    // GLAD
     if (gladLoadGL(glfwGetProcAddress) == 0) {
-        cout << "ERROR: Failed to initialize GLAD\n";
+        cout << "ERROR: Failed to initialize GLAD" << endl;
+
         glfwDestroyWindow(window);
         glfwTerminate();
 
         return -1;
     }
 
-    // Create vertex shader
+    // VERTEX SHADER
     unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
     glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
 
-    // Create fragment shader
+    // FRAGMENT SHADER
     unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
 
-    // Shader program
+    // SHADER PROGRAM
     unsigned int shaderProgram = glCreateProgram();
 
     glAttachShader(shaderProgram, vertexShader);
@@ -394,18 +552,13 @@ int main()
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
-    // Predator
-    Predator predator = {WORLD_WIDTH / 2.0f, WORLD_HEIGHT / 2.0f, 15.0f};
-
-    // Prey
+    // PREY ARRAY
     Prey prey[MAX_PREY_COUNT];
 
-    // First mark every slot as unused
     for (int i = 0; i < MAX_PREY_COUNT; i++) {
         prey[i].alive = false;
     }
 
-    // Create initial population
     for (int i = 0; i < INITIAL_PREY_COUNT; i++) {
         float x = randomFloat(0.0f, WORLD_WIDTH);
         float y = randomFloat(0.0f, WORLD_HEIGHT);
@@ -413,46 +566,59 @@ int main()
         initializePrey(prey[i], x, y);
     }
 
-    // Herbs
+    // PREDATOR ARRAY
+    Predator predators[MAX_PREDATOR_COUNT];
+
+    for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+        predators[i].alive = false;
+    }
+
+    for (int i = 0; i < INITIAL_PREDATOR_COUNT; i++) {
+        float x = randomFloat(0.0f, WORLD_WIDTH);
+        float y = randomFloat(0.0f, WORLD_HEIGHT);
+
+        initializePredator(predators[i], x, y);
+    }
+
+    // HERBS
     Herb herbs[HERB_COUNT];
 
     for (int i = 0; i < HERB_COUNT; i++) {
         respawnHerb(herbs[i]);
     }
 
-    // Circle settings
+    // CIRCLE SETTINGS
     const int SEGMENTS = 32;
     const int VERTEX_COUNT = SEGMENTS + 2;
+
     float circleVertices[VERTEX_COUNT * 2];
 
-    // Delta time
+    // DELTA TIME
     float lastTime = static_cast<float>(glfwGetTime());
 
-    // Main loop
+    // MAIN LOOP
     while (!glfwWindowShouldClose(window)) {
-        // Delta time
         float currentTime = static_cast<float>(glfwGetTime());
         float deltaTime = currentTime - lastTime;
+
         lastTime = currentTime;
 
-        // Prevent huge simulation jump after pause/window movement
         if (deltaTime > 0.1f) {
             deltaTime = 0.1f;
         }
 
-        // Herb regrowth
+        // HERB REGROWTH
         for (int i = 0; i < HERB_COUNT; i++) {
             if (!herbs[i].alive) {
                 herbs[i].regrowTimer += deltaTime;
 
                 if (herbs[i].regrowTimer >= HERB_REGROW_TIME) {
                     respawnHerb(herbs[i]);
-                    cout << "Herb #" << i << " has grown again" << endl;
                 }
             }
         }
 
-        // Prey algorithm
+        // UPDATE PREY
         for (int i = 0; i < MAX_PREY_COUNT; i++) {
             if (!prey[i].alive) {
                 continue;
@@ -462,8 +628,7 @@ int main()
             prey[i].age += deltaTime;
 
             // Reproduction cooldown
-            if (prey[i].reproductionCooldown > 0.0f)
-            {
+            if (prey[i].reproductionCooldown > 0.0f) {
                 prey[i].reproductionCooldown -= deltaTime;
 
                 if (prey[i].reproductionCooldown < 0.0f) {
@@ -471,34 +636,42 @@ int main()
                 }
             }
 
-            // Starvation
+            // Hunger
             prey[i].timeSinceMeal += deltaTime;
 
             if (prey[i].timeSinceMeal >= PREY_STARVATION_TIME) {
                 prey[i].alive = false;
+
                 cout << "Prey #" << i << " died from starvation" << endl;
+
                 continue;
             }
 
-            // Distance to predator
-            float dx_prey = prey[i].x - predator.x;
-            float dy_prey = prey[i].y - predator.y;
-            float distance_prey = sqrt(dx_prey * dx_prey + dy_prey * dy_prey);
+            // Find nearest predator
+            int predatorIndex = findNearestPredator(prey[i], predators);
+            float predatorDistance = 1000000.0f;
 
-            // Priority 1: flee from predator
-            if (distance_prey < FLEE_DISTANCE) {
-                fleeFromPredator(prey[i], predator, deltaTime);
+            if (predatorIndex != -1) {
+                float dx = prey[i].x - predators[predatorIndex].x;
+                float dy = prey[i].y - predators[predatorIndex].y;
+
+                predatorDistance = sqrt(dx * dx + dy * dy);
+            }
+
+            // PRIORITY 1: FLEE
+            if (predatorIndex != -1 && predatorDistance < FLEE_DISTANCE) {
+                fleeFromPredator(prey[i], predators[predatorIndex], deltaTime);
                 prey[i].speed = FLEE_PREY_SPEED;
             }
-            // Priority 2: If very hungry then search food
-            else if (prey[i].timeSinceMeal >= HUNGER_PRIORITY_TIME) {
-                prey[i].speed = NORMAL_PREY_SPEED;
-                int herbIndex = findNearestHerb(prey[i], herbs);
 
-                if (herbIndex != -1) {
-                    moveTowardHerb(prey[i], herbs[herbIndex]);
+            // PRIORITY 2: HUNGRY
+            else if (prey[i].timeSinceMeal >= PREY_HUNGER_PRIORITY_TIME) {
+                prey[i].speed = NORMAL_PREY_SPEED;
+                int herb = findNearestHerb(prey[i], herbs);
+
+                if (herb != -1) {
+                    moveTowardHerb(prey[i], herbs[herb]);
                 } else {
-                    // All herbs currently growing
                     prey[i].directionTimer += deltaTime;
 
                     if (prey[i].directionTimer >= prey[i].directionChangeTime) {
@@ -507,210 +680,303 @@ int main()
                     }
                 }
             }
-            // Priority 3: Reproduction
-            else if (canReproduce(prey[i])) {
-                int mate = findNearestMate(i, prey);
+
+            // PRIORITY 3: REPRODUCTION
+            else if (canPreyReproduce(prey[i])) {
+                int mate = findNearestPreyMate(i, prey);
+
                 if (mate != -1) {
-                    float mateDx = prey[mate].x - prey[i].x;
-                    float mateDy = prey[mate].y - prey[i].y;
-                    float mateDistance = sqrt(mateDx * mateDx + mateDy * mateDy);
+                    float dx = prey[mate].x - prey[i].x;
+                    float dy = prey[mate].y - prey[i].y;
 
-                    // Have they reached each other?
-                    if (mateDistance <= REPRODUCTION_DISTANCE) {
-                        /*
-                         Important:
-                         Imagine:
-                         prey[2] selects prey[5] and prey[5] could also select prey[2].
-                         Without protection they could create TWO babies during one meeting.
-                         Only the smaller index creates the baby.
-                         */
+                    float distance = sqrt(dx * dx + dy * dy);
 
+                    if (distance <= PREY_REPRODUCTION_DISTANCE) {
                         if (i < mate) {
                             createBabyPrey(prey, i, mate);
                         }
                     } else {
-                        // Move toward selected mate
                         moveTowardPrey(prey[i], prey[mate]);
                     }
                 } else {
-                    // If no available mate then continue looking for food.
-                    int herbIndex = findNearestHerb(prey[i], herbs);
-                    if (herbIndex != -1) {
-                        moveTowardHerb(prey[i], herbs[herbIndex]);
+                    int herb = findNearestHerb(prey[i], herbs);
+
+                    if (herb != -1) {
+                        moveTowardHerb(prey[i], herbs[herb]);
                     }
                 }
 
                 prey[i].speed = NORMAL_PREY_SPEED;
             }
-            // Priority 4: Normal food search
+
+            // PRIORITY 4: NORMAL FOOD SEARCH
             else {
                 prey[i].speed = NORMAL_PREY_SPEED;
-                int herbIndex = findNearestHerb(prey[i], herbs);
 
-                if (herbIndex != -1) {
-                    moveTowardHerb(prey[i], herbs[herbIndex]);
+                int herb = findNearestHerb(prey[i], herbs);
+
+                if (herb != -1) {
+                    moveTowardHerb(prey[i], herbs[herb]);
                 } else {
                     prey[i].directionTimer += deltaTime;
 
                     if (prey[i].directionTimer >= prey[i].directionChangeTime) {
                         randomDirection(prey[i]);
-
                         prey[i].directionTimer = 0.0f;
                     }
                 }
             }
 
-            // Move prey
+            // MOVE PREY
             prey[i].x += prey[i].dx * prey[i].speed * deltaTime;
             prey[i].y += prey[i].dy * prey[i].speed * deltaTime;
 
-            // Boundaries
-            if (prey[i].x <= 0.0f) {
+            // PREY BOUNDARIES
+            if (prey[i].x < 0.0f) {
                 prey[i].x = 0.0f;
                 prey[i].dx = -prey[i].dx;
             }
 
-            if (prey[i].x >= WORLD_WIDTH) {
+            if (prey[i].x > WORLD_WIDTH) {
                 prey[i].x = WORLD_WIDTH;
                 prey[i].dx = -prey[i].dx;
             }
 
-            if (prey[i].y <= 0.0f) {
+            if (prey[i].y < 0.0f) {
                 prey[i].y = 0.0f;
                 prey[i].dy = -prey[i].dy;
             }
 
-            if (prey[i].y >= WORLD_HEIGHT) {
+            if (prey[i].y > WORLD_HEIGHT) {
                 prey[i].y = WORLD_HEIGHT;
                 prey[i].dy = -prey[i].dy;
             }
 
-            // Check if prey eats herbs
+            // EAT HERB
             for (int h = 0; h < HERB_COUNT; h++) {
                 if (!herbs[h].alive) {
                     continue;
                 }
 
-                float herbDx = herbs[h].x - prey[i].x;
-                float herbDy = herbs[h].y - prey[i].y;
-                float herbDistance = sqrt(herbDx * herbDx + herbDy * herbDy);
+                float dx = herbs[h].x - prey[i].x;
+                float dy = herbs[h].y - prey[i].y;
 
-                if (herbDistance < HERB_EAT_DISTANCE) {
-                    cout << "Prey #" << i << " ate herb #" << h << endl;
+                float distance = sqrt(dx * dx + dy * dy);
 
-                    // Reset starvation timer
+                if (distance < HERB_EAT_DISTANCE) {
                     prey[i].timeSinceMeal = 0.0f;
 
-                    // Herb disappears
                     herbs[h].alive = false;
-
-                    // Start herb growth timer
                     herbs[h].regrowTimer = 0.0f;
+
+                    cout << "Prey #" << i << " ate herb #" << h << endl;
 
                     break;
                 }
             }
         }
 
-        // Predator algorithm
-        int currentPrey = findNearestPrey(predator, prey);
+        // UPDATE PREDATORS
+        for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+            if (!predators[i].alive) {
+                continue;
+            }
 
-        if (currentPrey != -1) {
-            float dx = prey[currentPrey].x - predator.x;
-            float dy = prey[currentPrey].y - predator.y;
-            float distance = sqrt(dx * dx + dy * dy);
+            // Age
+            predators[i].age += deltaTime;
 
-            // Has predator caught prey?
-            if (distance < CATCH_DISTANCE) {
-                cout << "Predator caught prey #" << currentPrey << endl;
-                prey[currentPrey].alive = false;
-            } else {
-                // Normalize direction
-                if (distance > 0.0f) {
-                    dx = dx / distance;
-                    dy = dy / distance;
+            // Reproduction cooldown
+            if (predators[i].reproductionCooldown > 0.0f) {
+                predators[i].reproductionCooldown -= deltaTime;
+
+                if (predators[i].reproductionCooldown < 0.0f) {
+                    predators[i].reproductionCooldown = 0.0f;
                 }
+            }
 
-                predator.x += dx * predator.speed * deltaTime;
-                predator.y += dy * predator.speed * deltaTime;
+            // Hunger
+            predators[i].timeSinceMeal += deltaTime;
+
+            if (predators[i].timeSinceMeal >= PREDATOR_STARVATION_TIME) {
+                predators[i].alive = false;
+
+                cout << "Predator #" << i << " died from starvation" << endl;
+
+                continue;
+            }
+
+            // PRIORITY 1: HUNGRY → HUNT
+            if (predators[i].timeSinceMeal >= PREDATOR_HUNGER_PRIORITY_TIME) {
+                int target = findNearestPrey(predators[i], prey);
+
+                if (target != -1) {
+                    float dx = prey[target].x - predators[i].x;
+                    float dy = prey[target].y - predators[i].y;
+
+                    float distance = sqrt(dx * dx + dy * dy);
+
+                    if (distance < CATCH_DISTANCE) {
+                        prey[target].alive = false;
+
+                        predators[i].timeSinceMeal = 0.0f;
+
+                        cout << "Predator #" << i << " ate prey #" << target << endl;
+                    } else {
+                        movePredatorTowardPrey(predators[i], prey[target]);
+                    }
+                }
+            }
+
+            // PRIORITY 2: REPRODUCTION
+            else if (canPredatorReproduce(predators[i])) {
+                int mate = findNearestPredatorMate(i, predators);
+
+                if (mate != -1) {
+                    float dx = predators[mate].x - predators[i].x;
+                    float dy = predators[mate].y - predators[i].y;
+
+                    float distance = sqrt(dx * dx + dy * dy);
+
+                    if (distance <=
+                        PREDATOR_REPRODUCTION_DISTANCE) {
+
+                        if (i < mate) {
+                            createBabyPredator(predators, i, mate);
+                        }
+                    } else {
+                        movePredatorTowardPredator(predators[i], predators[mate]);
+                    }
+                } else {
+                    int target = findNearestPrey(predators[i], prey);
+
+                    if (target != -1) {
+                        movePredatorTowardPrey(predators[i], prey[target]);
+                    }
+                }
+            }
+
+            // PRIORITY 3: NORMAL HUNT
+            else {
+                int target = findNearestPrey(predators[i], prey);
+
+                if (target != -1) {
+                    float dx = prey[target].x - predators[i].x;
+                    float dy = prey[target].y - predators[i].y;
+
+                    float distance = sqrt(dx * dx + dy * dy);
+
+                    if (distance < CATCH_DISTANCE) {
+                        prey[target].alive = false;
+
+                        predators[i].timeSinceMeal = 0.0f;
+
+                        cout << "Predator #" << i << " ate prey #" << target << endl;
+                    } else {
+                        movePredatorTowardPrey(predators[i], prey[target]);
+                    }
+                }
+            }
+
+            // MOVE PREDATOR
+            predators[i].x += predators[i].dx * predators[i].speed * deltaTime;
+            predators[i].y += predators[i].dy * predators[i].speed * deltaTime;
+
+            // PREDATOR BOUNDARIES
+            if (predators[i].x < 0.0f) {
+                predators[i].x = 0.0f;
+                predators[i].dx = -predators[i].dx;
+            }
+
+            if (predators[i].x > WORLD_WIDTH) {
+                predators[i].x = WORLD_WIDTH;
+                predators[i].dx = -predators[i].dx;
+            }
+
+            if (predators[i].y < 0.0f) {
+                predators[i].y = 0.0f;
+                predators[i].dy = -predators[i].dy;
+            }
+
+            if (predators[i].y > WORLD_HEIGHT) {
+                predators[i].y = WORLD_HEIGHT;
+                predators[i].dy = -predators[i].dy;
             }
         }
 
-        // Clear screen
+        // CLEAR SCREEN
         glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        // Use shader
         glUseProgram(shaderProgram);
+
         int colorLocation = glGetUniformLocation(shaderProgram, "objectColor");
 
-        // Draw herbs
+        // DRAW HERBS
         for (int i = 0; i < HERB_COUNT; i++) {
             if (!herbs[i].alive) {
                 continue;
             }
 
-            float herbX = convertX(herbs[i].x);
-            float herbY = convertY(herbs[i].y);
+            float x = convertX(herbs[i].x);
+            float y = convertY(herbs[i].y);
 
-            createCircle(herbX, herbY, 0.015f, circleVertices, SEGMENTS);
-            glBindVertexArray(VAO);
-            glBindBuffer(GL_ARRAY_BUFFER,VBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
-            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+            createCircle(x, y, 0.015f, circleVertices, SEGMENTS);
 
-            // Green color
-            glUniform3f(colorLocation, 0.1f, 0.8f, 0.1f);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
-        }
-
-        // Draw preys
-        for (int i = 0; i < MAX_PREY_COUNT; i++) {
-            if (!prey[i].alive) {
-                continue;
-            }
-
-            float preyX = convertX(prey[i].x);
-            float preyY = convertY(prey[i].y);
-
-            createCircle(preyX, preyY, 0.02f, circleVertices, SEGMENTS);
             glBindVertexArray(VAO);
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
             glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
+            glUniform3f(colorLocation, 0.1f, 0.8f, 0.1f);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+        }
 
-            // Blue color
+        // DRAW PREY
+        for (int i = 0; i < MAX_PREY_COUNT; i++) {
+            if (!prey[i].alive) {
+                continue;
+            }
+
+            float x = convertX(prey[i].x);
+            float y = convertY(prey[i].y);
+
+            createCircle(x, y, 0.02f, circleVertices, SEGMENTS);
+
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
             glUniform3f(colorLocation, 0.2f, 0.5f, 1.0f);
             glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
         }
 
-        // Draw predator
-        float predatorX = convertX(predator.x);
-        float predatorY = convertY(predator.y);
+        // DRAW PREDATORS
+        for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+            if (!predators[i].alive) {
+                continue;
+            }
 
-        createCircle(predatorX, predatorY, 0.03f, circleVertices, SEGMENTS);
-        glBindVertexArray(VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
+            float x = convertX(predators[i].x);
+            float y = convertY(predators[i].y);
 
-        // Red color
-        glUniform3f(colorLocation, 1.0f, 0.0f, 0.0f);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+            createCircle(x, y, 0.03f, circleVertices, SEGMENTS);
 
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(circleVertices), circleVertices, GL_DYNAMIC_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            glUniform3f(colorLocation, 1.0f, 0.0f, 0.0f);
+            glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
+        }
 
-        // Finish frame
+        // FINISH FRAME
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        // Approximately 60 FPS
         glfwWaitEventsTimeout(0.016);
     }
 
-    // Cleanup
+    // CLEANUP
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
