@@ -444,6 +444,45 @@ void createBabyPredator(Predator predators[], int parent1, int parent2) {
     cout << "NEW PREDATOR BORN! #" << baby << endl;
 }
 
+// POPULATION COUNTERS
+int countAlivePrey(Prey prey[]) {
+    int count = 0;
+
+    for (int i = 0; i < MAX_PREY_COUNT; i++) {
+        if (prey[i].alive) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+
+int countAlivePredators(Predator predators[]) {
+    int count = 0;
+
+    for (int i = 0; i < MAX_PREDATOR_COUNT; i++) {
+        if (predators[i].alive) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+
+int countAliveHerbs(Herb herbs[]) {
+    int count = 0;
+
+    for (int i = 0; i < HERB_COUNT; i++) {
+        if (herbs[i].alive) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
 // CONVERT WORLD COORDINATES TO OPENGL
 float convertX(float x) {
     return (x / WORLD_WIDTH) * 2.0f - 1.0f;
@@ -969,6 +1008,14 @@ int main() {
             glUniform3f(colorLocation, 1.0f, 0.0f, 0.0f);
             glDrawArrays(GL_TRIANGLE_FAN, 0, VERTEX_COUNT);
         }
+
+        int preyCount = countAlivePrey(prey);
+        int predatorCount = countAlivePredators(predators);
+        int herbCount = countAliveHerbs(herbs);
+
+        // BUILD TITLE
+        string title = "Predator Prey Ecosystem | Prey: " + to_string(preyCount) + " | Predators: " + to_string(predatorCount) + " | Herbs: " + to_string(herbCount);
+        glfwSetWindowTitle(window, title.c_str());
 
         // FINISH FRAME
         glfwSwapBuffers(window);
